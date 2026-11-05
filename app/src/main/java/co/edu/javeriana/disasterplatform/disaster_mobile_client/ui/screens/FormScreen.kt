@@ -163,6 +163,17 @@ fun FormScreen(
                     )
                 }
 
+                // Radio de la zona afectada (metros)
+                OutlinedTextField(
+                    value = formState.radio,
+                    onValueChange = { viewModel.onRadioChanged(it) },
+                    label = { Text("Radio afectado (metros)") },
+                    placeholder = { Text("Ej. 500") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                )
+
                 Spacer(modifier = Modifier.height(8.dp))
 
                 // Error alert message

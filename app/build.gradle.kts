@@ -73,4 +73,5 @@ dependencies {
     // Google Maps
     implementation(libs.maps.compose)
     implementation(libs.play.services.maps)
+    implementation(libs.android.maps.utils)
 }

@@ -24,7 +24,8 @@ data class FormState(
     val severidad: Int = 1,
     val descripcion: String = "",
     val latitud: String = "",
-    val longitud: String = ""
+    val longitud: String = "",
+    val radio: String = "500"
 )
 
 @HiltViewModel
@@ -62,6 +63,10 @@ class FormViewModel @Inject constructor(
         _formState.value = _formState.value.copy(longitud = value)
     }
 
+    fun onRadioChanged(value: String) {
+        _formState.value = _formState.value.copy(radio = value)
+    }
+
     fun resetState() {
         _uiState.value = FormUiState.Idle
     }
@@ -75,6 +80,7 @@ class FormViewModel @Inject constructor(
 
         val lat = current.latitud.toFloatOrNull()
         val lng = current.longitud.toFloatOrNull()
+        val rad = current.radio.toFloatOrNull() ?: 500f
 
         if (lat == null || lng == null) {
             _uiState.value = FormUiState.Error("Por favor ingresa valores numéricos válidos para latitud y longitud")
@@ -87,7 +93,8 @@ class FormViewModel @Inject constructor(
             severidad = current.severidad,
             descripcion = current.descripcion,
             latitud = lat,
-            longitud = lng
+            longitud = lng,
+            radio = rad
         )
 
         viewModelScope.launch {
