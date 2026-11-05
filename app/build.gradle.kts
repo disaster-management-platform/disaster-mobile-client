@@ -4,6 +4,7 @@ plugins {
     alias(libs.plugins.dagger)
     alias(libs.plugins.google.ksp)
     alias(libs.plugins.kotlin.serialization)
+    alias(libs.plugins.mapsplatform.secrets.plugin)
 }
 
 android {
@@ -69,4 +70,7 @@ dependencies {
     implementation(libs.converter.gson)
     implementation(libs.converter.scalars)
 
+    // Google Maps
+    implementation(libs.maps.compose)
+    implementation(libs.play.services.maps)
 }

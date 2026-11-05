@@ -7,6 +7,7 @@ import androidx.navigation.compose.composable
 import co.edu.javeriana.disasterplatform.disaster_mobile_client.ui.screens.DisastersScreen
 import co.edu.javeriana.disasterplatform.disaster_mobile_client.ui.screens.FormScreen
 import co.edu.javeriana.disasterplatform.disaster_mobile_client.ui.screens.HomeScreen
+import co.edu.javeriana.disasterplatform.disaster_mobile_client.ui.screens.MapScreen
 
 @Composable
 fun AppNavigation(
@@ -26,6 +27,10 @@ fun AppNavigation(
 
         composable(route = "disasters") {
             DisastersScreen(navController)
+        }
+
+        composable(route = "map") {
+            MapScreen(navController)
         }
     }
 }
