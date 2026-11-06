@@ -51,5 +51,6 @@ class DisasterSynchronizer @Inject constructor(
     private fun DisasterInfoDto.confirms(report: DisasterReportDto): Boolean =
         id > 0 && nombre == report.nombre && ubicacion == report.ubicacion &&
             severidad == report.severidad && descripcion == report.descripcion &&
-            latitud == report.latitud && longitud == report.longitud
+            latitud == report.latitud && longitud == report.longitud &&
+            (radio == null || radio == report.radio)
 }

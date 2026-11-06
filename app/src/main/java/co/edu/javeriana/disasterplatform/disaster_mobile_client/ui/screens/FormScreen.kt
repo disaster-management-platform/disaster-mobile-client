@@ -14,6 +14,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonColors
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -23,19 +24,23 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.navigation.NavHostController
+import co.edu.javeriana.disasterplatform.disaster_mobile_client.ui.theme.CommandBlue
 import co.edu.javeriana.disasterplatform.disaster_mobile_client.ui.viewmodels.FormUiState
 import co.edu.javeriana.disasterplatform.disaster_mobile_client.ui.viewmodels.FormViewModel
 
@@ -54,9 +59,13 @@ fun FormScreen(
                 title = { Text("Registrar Desastre") },
                 navigationIcon = {
                     TextButton(onClick = { navController.popBackStack() }) {
-                        Text("← Volver")
+                        Text("← Volver", color = Color.White)
                     }
-                }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = CommandBlue,
+                    titleContentColor = Color.White
+                )
             )
         }
     ) { paddingValues ->
@@ -113,7 +122,7 @@ fun FormScreen(
                         Text(
                             text = "${formState.severidad} / 5",
                             style = MaterialTheme.typography.titleMedium,
-                            color = MaterialTheme.colorScheme.primary,
+                            color = CommandBlue,
                             fontWeight = FontWeight.Bold
                         )
                     }
@@ -122,7 +131,12 @@ fun FormScreen(
                         onValueChange = { viewModel.onSeveridadChanged(it.toInt()) },
                         valueRange = 1f..5f,
                         steps = 3,
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = SliderDefaults.colors(
+                            thumbColor = CommandBlue,
+                            activeTrackColor = CommandBlue,
+                            inactiveTrackColor = Color.LightGray
+                        )
                     )
                 }
 
@@ -162,6 +176,17 @@ fun FormScreen(
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
                     )
                 }
+
+                // Radio de la zona afectada (metros)
+                OutlinedTextField(
+                    value = formState.radio,
+                    onValueChange = { viewModel.onRadioChanged(it) },
+                    label = { Text("Radio afectado (metros)") },
+                    placeholder = { Text("Ej. 500") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                )
 
                 Spacer(modifier = Modifier.height(8.dp))
 
@@ -218,7 +243,13 @@ fun FormScreen(
                     enabled = uiState !is FormUiState.Loading && uiState !is FormUiState.Success,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(50.dp)
+                        .height(50.dp),
+                    colors = ButtonColors(
+                        containerColor = CommandBlue,
+                        contentColor = Color.White,
+                        disabledContentColor = Color.Gray,
+                        disabledContainerColor = Color.LightGray
+                    )
                 ) {
                     if (uiState is FormUiState.Loading) {
                         CircularProgressIndicator(

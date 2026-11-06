@@ -10,5 +10,6 @@ fun DisasterReportDto.validated(): DisasterReportDto {
     require(severidad in 1..5) { "La severidad debe estar entre 1 y 5." }
     require(latitud.isFinite() && latitud in -90.0..90.0) { "La latitud debe estar entre -90 y 90." }
     require(longitud.isFinite() && longitud in -180.0..180.0) { "La longitud debe estar entre -180 y 180." }
+    require(radio.isFinite() && radio > 0.0) { "El radio debe ser mayor que 0." }
     return normalized
 }

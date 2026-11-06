@@ -25,15 +25,16 @@ data class DisasterEntity(
     val descripcion: String,
     val latitud: Double,
     val longitud: Double,
+    val radio: Double? = null,
     val syncStatus: String = SyncStatus.PENDING,
     val serverId: Int? = null,
     val syncError: String? = null,
 ) {
-    fun toReport() = DisasterReportDto(nombre, ubicacion, severidad, descripcion, latitud, longitud)
+    fun toReport() = DisasterReportDto(nombre, ubicacion, severidad, descripcion, latitud, longitud, radio ?: 500.0)
 }
 
 fun DisasterInfoDto.toEntity(localId: String = "server:$id") = DisasterEntity(
     clientRequestId = localId, nombre = nombre, ubicacion = ubicacion, severidad = severidad,
-    descripcion = descripcion, latitud = latitud, longitud = longitud,
+    descripcion = descripcion, latitud = latitud, longitud = longitud, radio = radio,
     syncStatus = SyncStatus.SYNCED, serverId = id,
 )

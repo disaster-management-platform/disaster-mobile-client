@@ -16,5 +16,7 @@ data class DisasterInfoDto(
     @SerializedName("latitud")
     val latitud: Double,
     @SerializedName("longitud")
-    val longitud: Double
+    val longitud: Double,
+    @SerializedName("radio")
+    val radio: Double? = null,
 )

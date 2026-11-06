@@ -1,5 +1,6 @@
 package co.edu.javeriana.disasterplatform.disaster_mobile_client.ui.screens
 
+import androidx.annotation.DrawableRes
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -9,12 +10,12 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -23,10 +24,14 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.navigation.NavHostController
+import co.edu.javeriana.disasterplatform.disaster_mobile_client.R
+import co.edu.javeriana.disasterplatform.disaster_mobile_client.ui.theme.CommandBlue
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -36,13 +41,14 @@ fun HomeScreen(navController: NavHostController) {
             TopAppBar(
                 title = {
                     Text(
-                        text = "Gestión de Desastres",
-                        fontWeight = FontWeight.Bold
+                        text = "Gestión de Desastres Offline",
+                        fontWeight = FontWeight.Bold,
+                        textAlign = TextAlign.Center
                     )
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer,
-                    titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                    containerColor = CommandBlue,
+                    titleContentColor = Color.White
                 )
             )
         }
@@ -51,39 +57,31 @@ fun HomeScreen(navController: NavHostController) {
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
-                .padding(16.dp)
-                .verticalScroll(rememberScrollState()),
+                .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            Text(
-                text = "Selecciona una opción para comenzar:",
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(bottom = 8.dp)
-            )
-
-            // Sección 1: Lista de Desastres
             HomeOptionCard(
                 title = "Lista de Desastres",
                 description = "Consulta los reportes guardados y su estado de sincronización.",
-                tag = "1",
-                onClick = { navController.navigate("disasters") }
+                iconRes = R.drawable.list,
+                onClick = { navController.navigate("disasters") },
+                modifier = Modifier.weight(1f)
             )
 
-            // Sección 2: Formulario de Registro
             HomeOptionCard(
                 title = "Registrar Desastre",
-                description = "Guarda un reporte, incluso sin conexión. Se enviará cuando haya red.",
-                tag = "2",
-                onClick = { navController.navigate("form") }
+                description = "Guarda un reporte incluso sin conexión. Se enviará cuando haya red.",
+                iconRes = R.drawable.add_location,
+                onClick = { navController.navigate("form") },
+                modifier = Modifier.weight(1f)
             )
 
-            // Sección 3: Mapa de Google
             HomeOptionCard(
-                title = "Mapa de Google",
-                description = "Visualiza geográficamente la ubicación de cada desastre sobre Google Maps.",
-                tag = "3",
-                onClick = { navController.navigate("map") }
+                title = "Mapa de Desastres",
+                description = "Visualiza ubicación, radio afectado y mapa de calor de cada desastre.",
+                iconRes = R.drawable.map,
+                onClick = { navController.navigate("map") },
+                modifier = Modifier.weight(1f)
             )
         }
     }
@@ -93,54 +91,57 @@ fun HomeScreen(navController: NavHostController) {
 fun HomeOptionCard(
     title: String,
     description: String,
-    tag: String,
-    onClick: () -> Unit
+    @DrawableRes iconRes: Int,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
     ElevatedCard(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .clickable { onClick() },
         elevation = CardDefaults.elevatedCardElevation(defaultElevation = 6.dp),
         colors = CardDefaults.elevatedCardColors(
-            containerColor = MaterialTheme.colorScheme.surface
+            containerColor = CommandBlue
         )
     ) {
         Row(
             modifier = Modifier
-                .fillMaxWidth()
+                .fillMaxSize()
                 .padding(20.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             ElevatedCard(
                 colors = CardDefaults.elevatedCardColors(
-                    containerColor = MaterialTheme.colorScheme.primary
+                    containerColor = Color.White
                 )
             ) {
-                Text(
-                    text = tag,
-                    color = MaterialTheme.colorScheme.onPrimary,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 20.sp,
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
+                Icon(
+                    painter = painterResource(id = iconRes),
+                    contentDescription = title,
+                    tint = CommandBlue,
+                    modifier = Modifier
+                        .padding(16.dp)
+                        .size(32.dp)
                 )
             }
 
             Spacer(modifier = Modifier.width(16.dp))
 
             Column(
-                modifier = Modifier.weight(1f)
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.Center
             ) {
                 Text(
                     text = title,
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface
+                    color = Color.White
                 )
-                Spacer(modifier = Modifier.height(4.dp))
+                Spacer(modifier = Modifier.height(6.dp))
                 Text(
                     text = description,
                     style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = Color.White.copy(alpha = 0.85f)
                 )
             }
         }

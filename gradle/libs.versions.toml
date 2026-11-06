@@ -53,6 +53,7 @@ hilt-compose-navigation = { module = "androidx.hilt:hilt-navigation-compose", ve
 retrofit = { module = "com.squareup.retrofit2:retrofit", version.ref = "converterScalars" }
 maps-compose = { module = "com.google.maps.android:maps-compose", version = "4.4.1" }
 play-services-maps = { module = "com.google.android.gms:play-services-maps", version = "19.0.0" }
+android-maps-utils = { module = "com.google.maps.android:android-maps-utils", version = "5.0.0" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
