@@ -18,8 +18,8 @@ object NetworkModule {
     @Provides
     fun providesRetrofit(): Retrofit {
         return Retrofit.Builder()
-            .baseUrl("http://127.0.0.1:5080/api/")
-            //.baseUrl("http://100.64.21.113:5080/api/")
+            //.baseUrl("http://127.0.0.1:5080/api/")
+            .baseUrl("http://100.64.21.113:5080/api/")
             .addConverterFactory(GsonConverterFactory.create())
             .addConverterFactory(ScalarsConverterFactory.create())
             .build()

@@ -11,6 +11,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -22,6 +23,7 @@ import androidx.compose.ui.graphics.Color as ComposeColor
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.navigation.NavHostController
+import co.edu.javeriana.disasterplatform.disaster_mobile_client.ui.theme.CommandBlue
 import co.edu.javeriana.disasterplatform.disaster_mobile_client.ui.viewmodels.DisastersUiState
 import co.edu.javeriana.disasterplatform.disaster_mobile_client.ui.viewmodels.DisastersViewModel
 import com.google.android.gms.maps.model.CameraPosition
@@ -60,9 +62,13 @@ fun MapScreen(
                 title = { Text("Mapa de Desastres") },
                 navigationIcon = {
                     TextButton(onClick = { navController.popBackStack() }) {
-                        Text("← Volver")
+                        Text("← Volver", color = ComposeColor.White)
                     }
-                }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = CommandBlue,
+                    titleContentColor = ComposeColor.White
+                )
             )
         }
     ) { paddingValues ->
