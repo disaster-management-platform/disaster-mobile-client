@@ -3,7 +3,7 @@ plugins {
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.dagger)
     alias(libs.plugins.google.ksp)
-    alias(libs.plugins.kotlin.serialization)
+    alias(libs.plugins.mapsplatform.secrets.plugin)
 }
 
 android {
@@ -20,6 +20,12 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        // El plugin de secrets reemplaza este valor para la app; las pruebas no necesitan Maps.
+        manifestPlaceholders["MAPS_API_KEY"] = ""
+        val apiBaseUrl = providers.gradleProperty("API_BASE_URL")
+            .orElse("http://10.0.2.2:5080/api/").get()
+        require(apiBaseUrl.endsWith("/api/")) { "API_BASE_URL debe terminar en /api/" }
+        buildConfigField("String", "API_BASE_URL", "\"${apiBaseUrl}\"")
     }
 
     buildTypes {
@@ -36,7 +42,13 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
+    testOptions.unitTests.isIncludeAndroidResources = true
+}
+
+ksp {
+    arg("room.schemaLocation", "$projectDir/schemas")
 }
 
 dependencies {
@@ -48,7 +60,18 @@ dependencies {
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
+    implementation(libs.androidx.lifecycle.runtime.compose)
+    implementation(libs.androidx.room.runtime)
+    ksp(libs.androidx.room.compiler)
+    implementation(libs.androidx.work.runtime)
+    implementation(libs.androidx.hilt.work)
+    ksp(libs.androidx.hilt.compiler)
     testImplementation(libs.junit)
+    testImplementation(libs.kotlinx.coroutines.test)
+    testImplementation(libs.robolectric)
+    testImplementation(libs.androidx.test.core)
+    testImplementation(libs.androidx.work.testing)
+    testImplementation(libs.mockwebserver)
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
     androidTestImplementation(libs.androidx.espresso.core)
@@ -69,4 +92,8 @@ dependencies {
     implementation(libs.converter.gson)
     implementation(libs.converter.scalars)
 
+    // Google Maps
+    implementation(libs.maps.compose)
+    implementation(libs.play.services.maps)
+    implementation(libs.android.maps.utils)
 }

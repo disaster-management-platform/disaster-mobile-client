@@ -1,10 +1,13 @@
 package co.edu.javeriana.disasterplatform.disaster_mobile_client.data.dto
 
+import com.google.gson.annotations.SerializedName
+
 data class DisasterReportDto(
-    val nombre: String,
-    val ubicacion: String,
-    val severidad: Int,
-    val descripcion: String,
-    val latitud: Float,
-    val longitud: Float
+    @SerializedName("nombre") val nombre: String,
+    @SerializedName("ubicacion") val ubicacion: String,
+    @SerializedName("severidad") val severidad: Int,
+    @SerializedName("descripcion") val descripcion: String,
+    @SerializedName("latitud") val latitud: Double,
+    @SerializedName("longitud") val longitud: Double,
+    @SerializedName("radio") val radio: Double = 500.0,
 )
