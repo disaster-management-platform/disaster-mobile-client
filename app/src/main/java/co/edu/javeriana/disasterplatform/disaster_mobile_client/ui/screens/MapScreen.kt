@@ -11,15 +11,14 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.key
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.navigation.NavHostController
-import co.edu.javeriana.disasterplatform.disaster_mobile_client.ui.viewmodels.DisastersUiState
 import co.edu.javeriana.disasterplatform.disaster_mobile_client.ui.viewmodels.DisastersViewModel
 import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
@@ -34,11 +33,7 @@ fun MapScreen(
     navController: NavHostController,
     viewModel: DisastersViewModel = hiltViewModel()
 ) {
-    val uiState by viewModel.uiState.collectAsState()
-
-    LaunchedEffect(Unit) {
-        viewModel.fetchDisasters()
-    }
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
     // Ubicación por defecto (Bogotá, Colombia)
     val defaultLocation = LatLng(4.6097, -74.0817)
@@ -67,10 +62,9 @@ fun MapScreen(
                 modifier = Modifier.fillMaxSize(),
                 cameraPositionState = cameraPositionState
             ) {
-                if (uiState is DisastersUiState.Success) {
-                    val disasters = (uiState as DisastersUiState.Success).disasters
-                    disasters.forEach { disaster ->
-                        val position = LatLng(disaster.latitud.toDouble(), disaster.longitud.toDouble())
+                uiState.disasters.forEach { disaster ->
+                    key(disaster.clientRequestId) {
+                        val position = LatLng(disaster.latitud, disaster.longitud)
                         Marker(
                             state = rememberMarkerState(position = position),
                             title = disaster.nombre,
@@ -79,30 +73,15 @@ fun MapScreen(
                     }
                 }
             }
-
-            when (uiState) {
-                is DisastersUiState.Loading -> {
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        CircularProgressIndicator()
-                    }
-                }
-                is DisastersUiState.Error -> {
-                    val errorMsg = (uiState as DisastersUiState.Error).message
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.TopCenter
-                    ) {
-                        Text(
-                            text = "Error al cargar desastres: $errorMsg",
-                            color = MaterialTheme.colorScheme.error,
-                            modifier = Modifier.padding(top = 16.dp)
-                        )
-                    }
-                }
-                else -> {}
+            if (uiState.isRefreshing) {
+                CircularProgressIndicator(modifier = Modifier.align(Alignment.TopCenter))
+            }
+            uiState.message?.let { message ->
+                Text(
+                    text = message,
+                    modifier = Modifier.align(Alignment.BottomCenter).padding(16.dp),
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
             }
         }
     }

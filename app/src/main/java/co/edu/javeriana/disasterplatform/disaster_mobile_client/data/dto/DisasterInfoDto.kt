@@ -14,7 +14,7 @@ data class DisasterInfoDto(
     @SerializedName("descripcion")
     val descripcion: String,
     @SerializedName("latitud")
-    val latitud: Float,
+    val latitud: Double,
     @SerializedName("longitud")
-    val longitud: Float
+    val longitud: Double
 )

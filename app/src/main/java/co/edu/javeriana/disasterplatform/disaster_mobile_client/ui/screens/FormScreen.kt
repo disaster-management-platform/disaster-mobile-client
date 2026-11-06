@@ -27,7 +27,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -45,8 +45,8 @@ fun FormScreen(
     navController: NavHostController,
     viewModel: FormViewModel = hiltViewModel()
 ) {
-    val formState by viewModel.formState.collectAsState()
-    val uiState by viewModel.uiState.collectAsState()
+    val formState by viewModel.formState.collectAsStateWithLifecycle()
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
     Scaffold(
         topBar = {
@@ -73,7 +73,7 @@ fun FormScreen(
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 Text(
-                    text = "Completa la información del reporte (DisasterReportDto):",
+                    text = "Completa la información del reporte:",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold
                 )
@@ -193,7 +193,7 @@ fun FormScreen(
                     ) {
                         Column(modifier = Modifier.padding(16.dp)) {
                             Text(
-                                text = "¡Desastre registrado exitosamente!",
+                                text = "Guardado localmente, pendiente de sincronización.",
                                 color = MaterialTheme.colorScheme.onPrimaryContainer,
                                 style = MaterialTheme.typography.titleSmall,
                                 fontWeight = FontWeight.Bold
@@ -215,7 +215,7 @@ fun FormScreen(
                 // Action button
                 Button(
                     onClick = { viewModel.submitForm() },
-                    enabled = uiState !is FormUiState.Loading,
+                    enabled = uiState !is FormUiState.Loading && uiState !is FormUiState.Success,
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(50.dp)
@@ -227,7 +227,7 @@ fun FormScreen(
                         )
                     }
                     Text(
-                        text = if (uiState is FormUiState.Loading) "Enviando..." else "Registrar Desastre",
+                        text = if (uiState is FormUiState.Loading) "Guardando..." else "Guardar desastre",
                         fontWeight = FontWeight.Bold
                     )
                 }

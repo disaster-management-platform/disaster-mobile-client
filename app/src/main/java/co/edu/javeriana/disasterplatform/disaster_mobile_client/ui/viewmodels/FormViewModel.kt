@@ -67,16 +67,17 @@ class FormViewModel @Inject constructor(
     }
 
     fun submitForm() {
+        if (_uiState.value is FormUiState.Loading || _uiState.value is FormUiState.Success) return
         val current = _formState.value
         if (current.nombre.isBlank() || current.ubicacion.isBlank() || current.descripcion.isBlank()) {
             _uiState.value = FormUiState.Error("Por favor completa todos los campos obligatorios")
             return
         }
 
-        val lat = current.latitud.toFloatOrNull()
-        val lng = current.longitud.toFloatOrNull()
+        val lat = current.latitud.toDoubleOrNull()
+        val lng = current.longitud.toDoubleOrNull()
 
-        if (lat == null || lng == null) {
+        if (lat == null || lng == null || !lat.isFinite() || !lng.isFinite()) {
             _uiState.value = FormUiState.Error("Por favor ingresa valores numéricos válidos para latitud y longitud")
             return
         }
@@ -90,8 +91,8 @@ class FormViewModel @Inject constructor(
             longitud = lng
         )
 
+        _uiState.value = FormUiState.Loading
         viewModelScope.launch {
-            _uiState.value = FormUiState.Loading
             repository.createDisaster(reportDto)
                 .onSuccess {
                     _uiState.value = FormUiState.Success

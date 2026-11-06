@@ -65,7 +65,7 @@ fun HomeScreen(navController: NavHostController) {
             // Sección 1: Lista de Desastres
             HomeOptionCard(
                 title = "Lista de Desastres",
-                description = "Consulta la lista completa de desastres reportados desde el sistema backend.",
+                description = "Consulta los reportes guardados y su estado de sincronización.",
                 tag = "1",
                 onClick = { navController.navigate("disasters") }
             )
@@ -73,7 +73,7 @@ fun HomeScreen(navController: NavHostController) {
             // Sección 2: Formulario de Registro
             HomeOptionCard(
                 title = "Registrar Desastre",
-                description = "Crea y envía un nuevo reporte de desastre con formato DisasterReportDto.",
+                description = "Guarda un reporte, incluso sin conexión. Se enviará cuando haya red.",
                 tag = "2",
                 onClick = { navController.navigate("form") }
             )
