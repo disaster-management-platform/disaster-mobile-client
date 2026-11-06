@@ -2,11 +2,11 @@
   "formatVersion": 1,
   "database": {
     "version": 1,
-    "identityHash": "254b294c679799943c18c6a546af121d",
+    "identityHash": "20424f2e82f562558534a33858088178",
     "entities": [
       {
         "tableName": "disasters",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`clientRequestId` TEXT NOT NULL, `nombre` TEXT NOT NULL, `ubicacion` TEXT NOT NULL, `severidad` INTEGER NOT NULL, `descripcion` TEXT NOT NULL, `latitud` REAL NOT NULL, `longitud` REAL NOT NULL, `syncStatus` TEXT NOT NULL, `serverId` INTEGER, `syncError` TEXT, PRIMARY KEY(`clientRequestId`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`clientRequestId` TEXT NOT NULL, `nombre` TEXT NOT NULL, `ubicacion` TEXT NOT NULL, `severidad` INTEGER NOT NULL, `descripcion` TEXT NOT NULL, `latitud` REAL NOT NULL, `longitud` REAL NOT NULL, `radio` REAL, `syncStatus` TEXT NOT NULL, `serverId` INTEGER, `syncError` TEXT, PRIMARY KEY(`clientRequestId`))",
         "fields": [
           {
             "fieldPath": "clientRequestId",
@@ -49,6 +49,11 @@
             "columnName": "longitud",
             "affinity": "REAL",
             "notNull": true
+          },
+          {
+            "fieldPath": "radio",
+            "columnName": "radio",
+            "affinity": "REAL"
           },
           {
             "fieldPath": "syncStatus",
@@ -97,7 +102,7 @@
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '254b294c679799943c18c6a546af121d')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '20424f2e82f562558534a33858088178')"
     ]
   }
 }
