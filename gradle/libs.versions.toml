@@ -11,6 +11,7 @@ activityCompose = "1.8.0"
 kotlin = "2.1.10"
 composeBom = "2026.02.01"
 ksp = "2.1.10-1.0.31"
+secretsPlugin = "2.0.1"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -35,6 +36,9 @@ dagger-hilt = { module = "com.google.dagger:hilt-android", version = "2.60.1"}
 dagger-compiler = { module = "com.google.dagger:hilt-android-compiler", version = "2.60.1"}
 hilt-compose-navigation = { module = "androidx.hilt:hilt-navigation-compose", version = "1.4.0"}
 retrofit = { module = "com.squareup.retrofit2:retrofit", version.ref = "converterScalars" }
+maps-compose = { module = "com.google.maps.android:maps-compose", version = "4.4.1" }
+play-services-maps = { module = "com.google.android.gms:play-services-maps", version = "19.0.0" }
+android-maps-utils = { module = "com.google.maps.android:android-maps-utils", version = "5.0.0" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
@@ -43,4 +47,5 @@ dagger = { id = "com.google.dagger.hilt.android", version = "2.60.1"}
 kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version = "2.4.21"}
 google-ksp = { id = "com.google.devtools.ksp", version.ref = "ksp"}
 google-services = { id = "com.google.gms.google-services", version = "4.5.0"}
+mapsplatform-secrets-plugin = { id = "com.google.android.libraries.mapsplatform.secrets-gradle-plugin", version.ref = "secretsPlugin" }
 

@@ -6,5 +6,6 @@ data class DisasterReportDto(
     val severidad: Int,
     val descripcion: String,
     val latitud: Float,
-    val longitud: Float
+    val longitud: Float,
+    val radio: Float
 )
