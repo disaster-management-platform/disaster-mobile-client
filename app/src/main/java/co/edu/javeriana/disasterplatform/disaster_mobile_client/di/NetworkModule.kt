@@ -18,8 +18,12 @@ object NetworkModule {
     @Provides
     fun providesRetrofit(): Retrofit {
         return Retrofit.Builder()
-            //.baseUrl("http://127.0.0.1:5080/api/")
-            .baseUrl("http://100.64.21.113:5080/api/")
+            // Localhost en caso de usar emulador en el mismo pc que el backend
+            .baseUrl("http://127.0.0.1:5080/api/")
+
+            // IP del PC en el que tiene el backend
+            //.baseUrl("http://100.64.21.113:5080/api/")
+
             .addConverterFactory(GsonConverterFactory.create())
             .addConverterFactory(ScalarsConverterFactory.create())
             .build()
