@@ -16,7 +16,6 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonColors
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -25,7 +24,6 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -33,10 +31,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavHostController
-import co.edu.javeriana.disasterplatform.disaster_mobile_client.data.dto.DisasterInfoDto
+import co.edu.javeriana.disasterplatform.disaster_mobile_client.data.local.DisasterEntity
+import co.edu.javeriana.disasterplatform.disaster_mobile_client.data.local.SyncStatus
 import co.edu.javeriana.disasterplatform.disaster_mobile_client.ui.theme.CommandBlue
-import co.edu.javeriana.disasterplatform.disaster_mobile_client.ui.viewmodels.DisastersUiState
 import co.edu.javeriana.disasterplatform.disaster_mobile_client.ui.viewmodels.DisastersViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -45,7 +44,7 @@ fun DisastersScreen(
     navController: NavHostController,
     viewModel: DisastersViewModel = hiltViewModel()
 ) {
-    val uiState by viewModel.uiState.collectAsState()
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
     Scaffold(
         topBar = {
@@ -70,6 +69,7 @@ fun DisastersScreen(
             ) {
                 Button(
                     onClick = { viewModel.fetchDisasters() },
+                    enabled = !uiState.isRefreshing,
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(50.dp),
@@ -80,7 +80,10 @@ fun DisastersScreen(
                         disabledContainerColor = Color.LightGray
                     )
                 ) {
-                    Text("Obtener Desastres", fontWeight = FontWeight.Bold)
+                    Text(
+                        if (uiState.isRefreshing) "Actualizando..." else "Obtener Desastres",
+                        fontWeight = FontWeight.Bold
+                    )
                 }
             }
         }
@@ -91,69 +94,24 @@ fun DisastersScreen(
                 .padding(paddingValues)
                 .padding(horizontal = 16.dp, vertical = 8.dp)
         ) {
-            when (val state = uiState) {
-                is DisastersUiState.Idle -> {
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = "Presiona el botón inferior para consultar los desastres desde el backend.",
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
+            uiState.message?.let { message ->
+                Text(message, modifier = Modifier.padding(bottom = 12.dp))
+            }
 
-                is DisastersUiState.Loading -> {
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        CircularProgressIndicator()
-                    }
+            if (uiState.disasters.isEmpty()) {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text("Todavía no hay reportes guardados.")
                 }
-
-                is DisastersUiState.Success -> {
-                    if (state.disasters.isEmpty()) {
-                        Box(
-                            modifier = Modifier.fillMaxSize(),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = "No se encontraron desastres reportados.",
-                                style = MaterialTheme.typography.bodyLarge
-                            )
-                        }
-                    } else {
-                        LazyColumn(
-                            verticalArrangement = Arrangement.spacedBy(12.dp),
-                            contentPadding = PaddingValues(vertical = 8.dp)
-                        ) {
-                            items(state.disasters) { disaster ->
-                                DisasterItemCard(disaster = disaster)
-                            }
-                        }
-                    }
-                }
-
-                is DisastersUiState.Error -> {
-                    Column(
-                        modifier = Modifier.fillMaxSize(),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Center
-                    ) {
-                        Text(
-                            text = "Error: ${state.message}",
-                            color = MaterialTheme.colorScheme.error,
-                            style = MaterialTheme.typography.bodyLarge
-                        )
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Button(
-                            onClick = { viewModel.fetchDisasters() },
-                        ) {
-                            Text("Reintentar")
-                        }
+            } else {
+                LazyColumn(
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    contentPadding = PaddingValues(vertical = 8.dp)
+                ) {
+                    items(uiState.disasters, key = { it.clientRequestId }) { disaster ->
+                        DisasterItemCard(disaster = disaster)
                     }
                 }
             }
@@ -162,7 +120,7 @@ fun DisastersScreen(
 }
 
 @Composable
-fun DisasterItemCard(disaster: DisasterInfoDto) {
+fun DisasterItemCard(disaster: DisasterEntity) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
@@ -179,7 +137,7 @@ fun DisasterItemCard(disaster: DisasterInfoDto) {
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "#${disaster.id} ${disaster.nombre}",
+                    text = disaster.serverId?.let { "#$it ${disaster.nombre}" } ?: disaster.nombre,
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold
                 )
@@ -192,6 +150,16 @@ fun DisasterItemCard(disaster: DisasterInfoDto) {
             }
 
             Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = when (disaster.syncStatus) {
+                    SyncStatus.SYNCED -> "Sincronizado"
+                    SyncStatus.CONFLICT -> "Conflicto: requiere revisión"
+                    SyncStatus.ERROR -> "No sincronizado: requiere revisión"
+                    else -> "Guardado localmente, pendiente de sincronización"
+                },
+                style = MaterialTheme.typography.labelMedium,
+            )
+            disaster.syncError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
 
             Text(
                 text = "Ubicación: ${disaster.ubicacion}",

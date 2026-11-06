@@ -60,28 +60,25 @@ fun HomeScreen(navController: NavHostController) {
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // Opción 1: Lista de desastres
             HomeOptionCard(
-                title = "Listar desastres",
-                description = "Consulta y visualiza el listado completo de desastres reportados en el sistema.",
+                title = "Lista de Desastres",
+                description = "Consulta los reportes guardados y su estado de sincronización.",
                 iconRes = R.drawable.list,
                 onClick = { navController.navigate("disasters") },
                 modifier = Modifier.weight(1f)
             )
 
-            // Opción 2: Registrar desastre
             HomeOptionCard(
-                title = "Registrar desastre",
-                description = "Reporta un nuevo evento de desastre especificando sus detalles, severidad y ubicación.",
+                title = "Registrar Desastre",
+                description = "Guarda un reporte incluso sin conexión. Se enviará cuando haya red.",
                 iconRes = R.drawable.add_location,
                 onClick = { navController.navigate("form") },
                 modifier = Modifier.weight(1f)
             )
 
-            // Opción 3: Mapa de desastres
             HomeOptionCard(
-                title = "Mapa de desastres",
-                description = "Visualiza geográficamente la ubicación, radio afectado y mapa de calor de cada desastre.",
+                title = "Mapa de Desastres",
+                description = "Visualiza ubicación, radio afectado y mapa de calor de cada desastre.",
                 iconRes = R.drawable.map,
                 onClick = { navController.navigate("map") },
                 modifier = Modifier.weight(1f)

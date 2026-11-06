@@ -1,28 +1,45 @@
 package co.edu.javeriana.disasterplatform.disaster_mobile_client.data.repository
 
-import co.edu.javeriana.disasterplatform.disaster_mobile_client.data.dto.DisasterInfoDto
+import android.util.Log
 import co.edu.javeriana.disasterplatform.disaster_mobile_client.data.dto.DisasterReportDto
+import co.edu.javeriana.disasterplatform.disaster_mobile_client.data.local.DisasterDao
+import co.edu.javeriana.disasterplatform.disaster_mobile_client.data.local.DisasterEntity
 import co.edu.javeriana.disasterplatform.disaster_mobile_client.data.remote.DisasterApi
+import co.edu.javeriana.disasterplatform.disaster_mobile_client.data.sync.DisasterSyncScheduler
+import co.edu.javeriana.disasterplatform.disaster_mobile_client.data.validated
+import java.util.UUID
 import javax.inject.Inject
+import kotlinx.coroutines.CancellationException
 
 class DisasterRepository @Inject constructor(
-    private val disasterApi: DisasterApi
+    private val api: DisasterApi,
+    private val dao: DisasterDao,
+    private val syncScheduler: DisasterSyncScheduler,
 ) {
-    suspend fun getDisasters(): Result<List<DisasterInfoDto>> {
-        return try {
-            val disasters = disasterApi.getDisasters()
-            Result.success(disasters)
-        } catch (e: Exception) {
-            Result.failure(e)
-        }
+    fun observeDisasters() = dao.observeAll()
+
+    suspend fun refreshDisasters() {
+        dao.cacheRemote(api.getDisasters())
     }
 
-    suspend fun createDisaster(disasterReport: DisasterReportDto): Result<DisasterInfoDto> {
-        return try {
-            val result = disasterApi.createDisaster(disasterReport)
-            Result.success(result)
-        } catch (e: Exception) {
-            Result.failure(e)
+    suspend fun createDisaster(report: DisasterReportDto): Result<DisasterEntity> = try {
+        val valid = report.validated()
+        val disaster = DisasterEntity(
+            clientRequestId = UUID.randomUUID().toString(),
+            nombre = valid.nombre, ubicacion = valid.ubicacion, severidad = valid.severidad,
+            descripcion = valid.descripcion, latitud = valid.latitud, longitud = valid.longitud,
+        )
+        dao.insert(disaster)
+        try {
+            syncScheduler.enqueue()
+        } catch (error: IllegalStateException) {
+            // El reporte ya está guardado. Al abrir la app se vuelve a programar.
+            Log.w("DisasterRepository", "No se pudo programar la sincronización", error)
         }
+        Result.success(disaster)
+    } catch (cancelled: CancellationException) {
+        throw cancelled
+    } catch (error: Exception) {
+        Result.failure(error)
     }
 }
