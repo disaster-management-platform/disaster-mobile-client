@@ -166,6 +166,41 @@ fun DisasterItemCard(disaster: DisasterEntity) {
                 style = MaterialTheme.typography.bodyMedium
             )
 
+            disaster.desastreAsociado?.let {
+                Text(
+                    text = "Desastre asociado: $it",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = CommandBlue,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
+
+            if (disaster.tipoActivo != null || disaster.nivelDano != null) {
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = "Activo: ${disaster.tipoActivo ?: "N/A"} | Daño: ${disaster.nivelDano ?: "N/A"}",
+                    style = MaterialTheme.typography.bodySmall,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
+
+            if (disaster.evaluador != null || disaster.organizacion != null) {
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = "Evaluador: ${disaster.evaluador ?: "N/A"} (${disaster.organizacion ?: "N/A"})",
+                    style = MaterialTheme.typography.bodySmall
+                )
+            }
+
+            if (disaster.estadoEvaluacion != null) {
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = "Estado Evaluación: ${disaster.estadoEvaluacion}",
+                    style = MaterialTheme.typography.bodySmall,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+
             if (disaster.radio != null) {
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
@@ -182,6 +217,15 @@ fun DisasterItemCard(disaster: DisasterEntity) {
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
+
+            if (!disaster.evidencias.isNullOrBlank()) {
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = "Evidencias: ${disaster.evidencias}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
 
             Spacer(modifier = Modifier.height(8.dp))
 

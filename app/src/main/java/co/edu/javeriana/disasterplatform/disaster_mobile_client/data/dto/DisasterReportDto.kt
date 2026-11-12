@@ -10,4 +10,12 @@ data class DisasterReportDto(
     @SerializedName("latitud") val latitud: Double,
     @SerializedName("longitud") val longitud: Double,
     @SerializedName("radio") val radio: Double = 500.0,
+    @SerializedName("desastreAsociado") val desastreAsociado: String? = null,
+    @SerializedName("fechaHora") val fechaHora: String? = null,
+    @SerializedName("evaluador") val evaluador: String? = null,
+    @SerializedName("organizacion") val organizacion: String? = null,
+    @SerializedName("tipoActivo") val tipoActivo: String? = null,
+    @SerializedName("nivelDano") val nivelDano: String? = null,
+    @SerializedName("evidencias") val evidencias: String? = null,
+    @SerializedName("estadoEvaluacion") val estadoEvaluacion: String? = null,
 )

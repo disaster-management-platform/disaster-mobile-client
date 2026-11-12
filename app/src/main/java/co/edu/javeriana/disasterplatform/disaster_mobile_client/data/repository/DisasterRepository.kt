@@ -26,8 +26,21 @@ class DisasterRepository @Inject constructor(
         val valid = report.validated()
         val disaster = DisasterEntity(
             clientRequestId = UUID.randomUUID().toString(),
-            nombre = valid.nombre, ubicacion = valid.ubicacion, severidad = valid.severidad,
-            descripcion = valid.descripcion, latitud = valid.latitud, longitud = valid.longitud,
+            nombre = valid.nombre,
+            ubicacion = valid.ubicacion,
+            severidad = valid.severidad,
+            descripcion = valid.descripcion,
+            latitud = valid.latitud,
+            longitud = valid.longitud,
+            radio = valid.radio,
+            desastreAsociado = valid.desastreAsociado,
+            fechaHora = valid.fechaHora,
+            evaluador = valid.evaluador,
+            organizacion = valid.organizacion,
+            tipoActivo = valid.tipoActivo,
+            nivelDano = valid.nivelDano,
+            evidencias = valid.evidencias,
+            estadoEvaluacion = valid.estadoEvaluacion,
         )
         dao.insert(disaster)
         try {
