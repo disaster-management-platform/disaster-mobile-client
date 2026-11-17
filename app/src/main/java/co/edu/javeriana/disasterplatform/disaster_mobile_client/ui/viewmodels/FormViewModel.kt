@@ -25,7 +25,7 @@ data class FormState(
     val descripcion: String = "",
     val latitud: String = "",
     val longitud: String = "",
-    val radio: String = "500"
+    val radio: String = ""
 )
 
 @HiltViewModel
@@ -81,14 +81,14 @@ class FormViewModel @Inject constructor(
 
         val lat = current.latitud.toDoubleOrNull()
         val lng = current.longitud.toDoubleOrNull()
-        val rad = current.radio.toDoubleOrNull() ?: 500.0
+        val rad = current.radio.toDoubleOrNull()
 
         if (lat == null || lng == null || !lat.isFinite() || !lng.isFinite()) {
             _uiState.value = FormUiState.Error("Por favor ingresa valores numéricos válidos para latitud y longitud")
             return
         }
-        if (!rad.isFinite() || rad <= 0.0) {
-            _uiState.value = FormUiState.Error("Por favor ingresa un radio válido mayor que cero")
+        if (current.radio.isNotBlank() && (rad == null || !rad.isFinite() || rad <= 0.0 || rad > 1_000_000.0)) {
+            _uiState.value = FormUiState.Error("El radio debe ser mayor que cero y máximo 1.000.000 metros")
             return
         }
 

@@ -23,6 +23,9 @@ import co.edu.javeriana.disasterplatform.disaster_mobile_client.data.repository.
 import co.edu.javeriana.disasterplatform.disaster_mobile_client.data.sync.DisasterSyncScheduler
 import co.edu.javeriana.disasterplatform.disaster_mobile_client.data.sync.DisasterSynchronizer
 import co.edu.javeriana.disasterplatform.disaster_mobile_client.data.sync.SyncDisastersWorker
+import co.edu.javeriana.disasterplatform.disaster_mobile_client.di.NetworkModule
+import co.edu.javeriana.disasterplatform.disaster_mobile_client.ui.viewmodels.FormViewModel
+import co.edu.javeriana.disasterplatform.disaster_mobile_client.ui.viewmodels.FormUiState
 import com.google.gson.Gson
 import java.io.IOException
 import java.util.UUID
@@ -251,4 +254,92 @@ class OfflineDisastersTest {
         assertTrue(dao.observeAll().first().isEmpty())
         assertEquals(0, server.requestCount)
     }
+
+    @Test
+    fun radiusSurvivesRoomReopeningAndSyncWithoutSubstitution() = runTest {
+        val repository = DisasterRepository(api, dao, DisasterSyncScheduler(context))
+        val selected = repository.createDisaster(report.copy(radio = 1234.75)).getOrThrow()
+        val unknown = repository.createDisaster(report.copy(nombre = "Sin área", radio = null)).getOrThrow()
+        database.close()
+        database = openDatabase()
+        assertEquals(1234.75, dao.findByRequestId(selected.clientRequestId)?.radio)
+        assertNull(dao.findByRequestId(unknown.clientRequestId)?.radio)
+        respond(201, confirmation(21).copy(radio = 1234.75))
+        respond(200, confirmation(22).copy(nombre = "Sin área", radio = null))
+        assertTrue(DisasterSynchronizer(dao, api).syncPending())
+        val sent = checkNotNull(server.takeRequest(5, TimeUnit.SECONDS))
+        assertEquals(selected.clientRequestId, sent.getHeader("Idempotency-Key"))
+        assertEquals(1234.75, gson.fromJson(sent.body.readUtf8(), DisasterReportDto::class.java).radio)
+        val sentUnknown = checkNotNull(server.takeRequest(5, TimeUnit.SECONDS))
+        assertNull(gson.fromJson(sentUnknown.body.readUtf8(), DisasterReportDto::class.java).radio)
+        assertEquals(21, dao.findByRequestId(selected.clientRequestId)?.serverId)
+        assertEquals(22, dao.findByRequestId(unknown.clientRequestId)?.serverId)
+        assertTrue(DisasterSynchronizer(dao, api).syncPending())
+        assertEquals(2, server.requestCount)
+    }
+
+    @Test
+    fun radiusMismatchIsVisibleAndNeverConfirmed() = runTest {
+        for ((index, radii) in listOf(1234.75 to null, null to 500.0, 1234.75 to 500.0).withIndex()) {
+            val saved = pending().copy(radio = radii.first)
+            dao.insert(saved)
+            respond(200, confirmation(30 + index).copy(radio = radii.second))
+            assertTrue(DisasterSynchronizer(dao, api).syncPending())
+            assertEquals(saved.copy(syncStatus = SyncStatus.CONFLICT,
+                syncError = "El servidor confirmó un radio diferente. Se conserva el reporte para revisión."),
+                dao.findByRequestId(saved.clientRequestId))
+        }
+    }
+
+    @Test
+    fun historicalUnknownRadiusConflictPreservesIdentityAndOtherRecords() = runTest {
+        val pending = pending()
+        val others = listOf(pending().copy(syncStatus = SyncStatus.SYNCED, serverId = 90),
+            pending().copy(syncStatus = SyncStatus.ERROR, syncError = "Error anterior"),
+            pending().copy(syncStatus = SyncStatus.CONFLICT, syncError = "Conflicto anterior"))
+        (others + pending).forEach { dao.insert(it) }
+        database.close()
+        database = openDatabase()
+        respond(409)
+        assertTrue(DisasterSynchronizer(dao, api).syncPending())
+        val retained = checkNotNull(dao.findByRequestId(pending.clientRequestId))
+        assertEquals(pending, retained.copy(syncStatus = SyncStatus.PENDING, syncError = null))
+        assertEquals(SyncStatus.CONFLICT, retained.syncStatus)
+        assertTrue(retained.syncError!!.contains("histórico"))
+        others.forEach { assertEquals(it, dao.findByRequestId(it.clientRequestId)) }
+        assertTrue(DisasterSynchronizer(dao, api).syncPending())
+        assertEquals(1, server.requestCount)
+        assertEquals(pending.clientRequestId, server.takeRequest().getHeader("Idempotency-Key"))
+    }
+
+    @Test
+    fun invalidRadiiAreRejectedAndConfiguredGatewayIsUsed() = runTest {
+        val repository = DisasterRepository(api, dao, DisasterSyncScheduler(context))
+        for (radius in listOf(Double.NaN, Double.POSITIVE_INFINITY, -1.0, 0.0, 1_000_000.01)) {
+            assertTrue(repository.createDisaster(report.copy(radio = radius)).isFailure)
+        }
+        assertTrue(dao.observeAll().first().isEmpty())
+        assertEquals(1_000_000.0, repository.createDisaster(report.copy(radio = 1_000_000.0)).getOrThrow().radio)
+        assertEquals(BuildConfig.API_BASE_URL,
+            NetworkModule.providesRetrofit().baseUrl().toString())
+    }
+
+
+    @Test
+    fun formRejectsInvalidTextInsteadOfInventingARadius() {
+        val viewModel = FormViewModel(
+            DisasterRepository(api, dao, DisasterSyncScheduler(context)))
+        viewModel.onNombreChanged("Prueba")
+        viewModel.onUbicacionChanged("Bogotá")
+        viewModel.onDescripcionChanged("Prueba")
+        viewModel.onLatitudChanged("4.7")
+        viewModel.onLongitudChanged("-74")
+        for (text in listOf("inválido", "NaN", "Infinity", "0", "1000001")) {
+            viewModel.onRadioChanged(text)
+            viewModel.submitForm()
+            assertTrue(viewModel.uiState.value is FormUiState.Error)
+            assertEquals(0, server.requestCount)
+        }
+    }
+
 }

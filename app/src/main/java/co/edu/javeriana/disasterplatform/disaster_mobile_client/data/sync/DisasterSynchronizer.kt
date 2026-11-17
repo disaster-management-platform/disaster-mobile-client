@@ -27,7 +27,14 @@ class DisasterSynchronizer @Inject constructor(
                     val saved = response.body()
                     if (response.code() !in listOf(200, 201) || saved == null)
                         throw IOException("El servidor no confirmó el desastre.")
-                    if (!saved.confirms(report)) throw IOException("La respuesta no confirma el reporte enviado.")
+                    if (!saved.confirms(report)) {
+                        if (saved.radio != report.radio) {
+                            dao.markError(disaster.clientRequestId, SyncStatus.CONFLICT,
+                                "El servidor confirmó un radio diferente. Se conserva el reporte para revisión.")
+                            continue
+                        }
+                        throw IOException("La respuesta no confirma el reporte enviado.")
+                    }
                     dao.markSynced(disaster.clientRequestId, saved.id)
                 } catch (error: HttpException) {
                     val code = error.code()
@@ -35,7 +42,9 @@ class DisasterSynchronizer @Inject constructor(
                     val status = if (code == 409) SyncStatus.CONFLICT else SyncStatus.ERROR
                     val message = when (code) {
                         400 -> "El servidor rechazó los datos del reporte (400)."
-                        409 -> "La clave ya está registrada con otros datos (409)."
+                        409 -> if (disaster.radio == null)
+                            "La clave ya está registrada con otros datos (409). El radio histórico es desconocido; requiere revisión."
+                        else "La clave ya está registrada con otros datos (409)."
                         else -> "No se pudo sincronizar el reporte (HTTP $code)."
                     }
                     dao.markError(disaster.clientRequestId, status, message)
@@ -52,5 +61,5 @@ class DisasterSynchronizer @Inject constructor(
         id > 0 && nombre == report.nombre && ubicacion == report.ubicacion &&
             severidad == report.severidad && descripcion == report.descripcion &&
             latitud == report.latitud && longitud == report.longitud &&
-            (radio == null || radio == report.radio)
+            radio == report.radio
 }

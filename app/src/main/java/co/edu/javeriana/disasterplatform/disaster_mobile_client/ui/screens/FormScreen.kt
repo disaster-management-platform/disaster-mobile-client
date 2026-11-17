@@ -181,8 +181,8 @@ fun FormScreen(
                 OutlinedTextField(
                     value = formState.radio,
                     onValueChange = { viewModel.onRadioChanged(it) },
-                    label = { Text("Radio afectado (metros)") },
-                    placeholder = { Text("Ej. 500") },
+                    label = { Text("Radio afectado (metros, opcional)") },
+                    placeholder = { Text("Desconocido") },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)

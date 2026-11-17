@@ -1,6 +1,6 @@
 package co.edu.javeriana.disasterplatform.disaster_mobile_client.di
 
-import androidx.viewbinding.BuildConfig
+import co.edu.javeriana.disasterplatform.disaster_mobile_client.BuildConfig
 import co.edu.javeriana.disasterplatform.disaster_mobile_client.data.remote.DisasterApi
 import dagger.Module
 import dagger.Provides
@@ -19,8 +19,7 @@ object NetworkModule {
     @Provides
     fun providesRetrofit(): Retrofit {
         return Retrofit.Builder()
-            // Localhost si el backend esta corriendo en el mismo dispositivo
-            .baseUrl("http://localhost:5080/api/")
+            .baseUrl(BuildConfig.API_BASE_URL)
             .addConverterFactory(GsonConverterFactory.create())
             .addConverterFactory(ScalarsConverterFactory.create())
             .build()

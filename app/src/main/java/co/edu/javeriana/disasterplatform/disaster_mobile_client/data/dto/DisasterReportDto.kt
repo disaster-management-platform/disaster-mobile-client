@@ -9,5 +9,5 @@ data class DisasterReportDto(
     @SerializedName("descripcion") val descripcion: String,
     @SerializedName("latitud") val latitud: Double,
     @SerializedName("longitud") val longitud: Double,
-    @SerializedName("radio") val radio: Double = 500.0,
+    @SerializedName("radio") val radio: Double? = null,
 )

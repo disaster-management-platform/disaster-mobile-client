@@ -106,7 +106,7 @@ fun MapScreen(
                 uiState.disasters.forEach { disaster ->
                     key(disaster.clientRequestId) {
                         val position = LatLng(disaster.latitud, disaster.longitud)
-                        val radiusMeters = disaster.radio ?: 500.0
+                        val radiusMeters = disaster.radio
 
                         val fillColor = when (disaster.severidad) {
                             1 -> ComposeColor(0x334CAF50)
@@ -123,7 +123,7 @@ fun MapScreen(
                             else -> ComposeColor(0xFFF44336)
                         }
 
-                        Circle(
+                        if (radiusMeters != null) Circle(
                             center = position,
                             radius = radiusMeters,
                             fillColor = fillColor,
@@ -134,7 +134,7 @@ fun MapScreen(
                         Marker(
                             state = rememberMarkerState(position = position),
                             title = disaster.nombre,
-                            snippet = "${disaster.ubicacion} | Radio: ${radiusMeters.toInt()}m (Severidad: ${disaster.severidad})"
+                            snippet = "${disaster.ubicacion} | Radio: ${radiusMeters?.let { "$it m" } ?: "desconocido"} (Severidad: ${disaster.severidad})"
                         )
                     }
                 }

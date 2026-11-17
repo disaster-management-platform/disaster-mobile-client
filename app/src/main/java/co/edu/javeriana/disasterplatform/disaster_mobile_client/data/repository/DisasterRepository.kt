@@ -27,7 +27,7 @@ class DisasterRepository @Inject constructor(
         val disaster = DisasterEntity(
             clientRequestId = UUID.randomUUID().toString(),
             nombre = valid.nombre, ubicacion = valid.ubicacion, severidad = valid.severidad,
-            descripcion = valid.descripcion, latitud = valid.latitud, longitud = valid.longitud,
+            descripcion = valid.descripcion, latitud = valid.latitud, longitud = valid.longitud, radio = valid.radio,
         )
         dao.insert(disaster)
         try {

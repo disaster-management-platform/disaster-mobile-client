@@ -6,6 +6,12 @@ plugins {
     alias(libs.plugins.mapsplatform.secrets.plugin)
 }
 
+val apiBaseUrl = providers.gradleProperty("API_BASE_URL")
+    .orElse("http://10.0.2.2:5080/api/").get()
+require(apiBaseUrl.endsWith("/api/") && (apiBaseUrl.startsWith("http://") || apiBaseUrl.startsWith("https://"))) {
+    "API_BASE_URL debe ser HTTP(S) y terminar en /api/"
+}
+
 android {
     namespace = "co.edu.javeriana.disasterplatform.disaster_mobile_client"
     compileSdk {
@@ -22,9 +28,6 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         // El plugin de secrets reemplaza este valor para la app; las pruebas no necesitan Maps.
         manifestPlaceholders["MAPS_API_KEY"] = ""
-        val apiBaseUrl = providers.gradleProperty("API_BASE_URL")
-            .orElse("http://10.0.2.2:5080/api/").get()
-        require(apiBaseUrl.endsWith("/api/")) { "API_BASE_URL debe terminar en /api/" }
         buildConfigField("String", "API_BASE_URL", "\"${apiBaseUrl}\"")
     }
 
@@ -45,6 +48,13 @@ android {
         buildConfig = true
     }
     testOptions.unitTests.isIncludeAndroidResources = true
+}
+
+tasks.matching { it.name == "generateReleaseBuildConfig" }.configureEach {
+    val releaseUrl = apiBaseUrl
+    doFirst {
+        require(releaseUrl.startsWith("https://")) { "API_BASE_URL de release debe utilizar HTTPS" }
+    }
 }
 
 ksp {
