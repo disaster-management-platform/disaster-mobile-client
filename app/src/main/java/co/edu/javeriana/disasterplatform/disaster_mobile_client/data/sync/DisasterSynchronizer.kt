@@ -27,13 +27,16 @@ class DisasterSynchronizer @Inject constructor(
                     val saved = response.body()
                     if (response.code() !in listOf(200, 201) || saved == null)
                         throw IOException("El servidor no confirmó el desastre.")
+                    if (saved.id <= 0 || saved.nombre.isNullOrBlank() || saved.ubicacion.isNullOrBlank()
+                        || saved.descripcion.isNullOrBlank() || saved.severidad !in 1..5
+                        || !saved.latitud.isFinite() || saved.latitud !in -90.0..90.0
+                        || !saved.longitud.isFinite() || saved.longitud !in -180.0..180.0
+                        || (saved.radio != null && (!saved.radio.isFinite() || saved.radio <= 0 || saved.radio > 1_000_000)))
+                        throw IOException("El servidor devolvió una confirmación incompleta o inválida.")
                     if (!saved.confirms(report)) {
-                        if (saved.radio != report.radio) {
-                            dao.markError(disaster.clientRequestId, SyncStatus.CONFLICT,
-                                "El servidor confirmó un radio diferente. Se conserva el reporte para revisión.")
-                            continue
-                        }
-                        throw IOException("La respuesta no confirma el reporte enviado.")
+                        dao.markError(disaster.clientRequestId, SyncStatus.CONFLICT,
+                            "El servidor confirmó un contenido diferente. Se conserva el reporte para revisión.")
+                        continue
                     }
                     dao.markSynced(disaster.clientRequestId, saved.id)
                 } catch (error: HttpException) {

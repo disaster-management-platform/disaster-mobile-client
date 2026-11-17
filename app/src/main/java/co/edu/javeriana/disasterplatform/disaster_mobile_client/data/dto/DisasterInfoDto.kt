@@ -4,19 +4,19 @@ import com.google.gson.annotations.SerializedName
 
 data class DisasterInfoDto(
     @SerializedName("id")
-    val id: Int,
+    val id: Int = 0,
     @SerializedName("nombre")
-    val nombre: String,
+    val nombre: String = "",
     @SerializedName("ubicacion")
-    val ubicacion: String,
+    val ubicacion: String = "",
     @SerializedName("severidad")
-    val severidad: Int,
+    val severidad: Int = 0,
     @SerializedName("descripcion")
-    val descripcion: String,
+    val descripcion: String = "",
     @SerializedName("latitud")
-    val latitud: Double,
+    val latitud: Double = Double.NaN,
     @SerializedName("longitud")
-    val longitud: Double,
+    val longitud: Double = Double.NaN,
     @SerializedName("radio")
     val radio: Double? = null,
 )

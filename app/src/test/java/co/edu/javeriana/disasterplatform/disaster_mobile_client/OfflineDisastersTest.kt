@@ -184,11 +184,9 @@ class OfflineDisastersTest {
     fun invalidOrEmptyConfirmationDoesNotMarkAsSynced() = runTest {
         val saved = pending()
         dao.insert(saved)
-        for (body in listOf(confirmation(0), confirmation().copy(nombre = "Otro reporte"))) {
-            respond(200, body)
-            assertFalse(DisasterSynchronizer(dao, api).syncPending())
-            assertEquals(saved, dao.findByRequestId(saved.clientRequestId))
-        }
+        respond(200, confirmation(0))
+        assertFalse(DisasterSynchronizer(dao, api).syncPending())
+        assertEquals(saved, dao.findByRequestId(saved.clientRequestId))
         respond(204)
         assertFalse(DisasterSynchronizer(dao, api).syncPending())
         assertEquals(saved, dao.findByRequestId(saved.clientRequestId))
@@ -286,7 +284,7 @@ class OfflineDisastersTest {
             respond(200, confirmation(30 + index).copy(radio = radii.second))
             assertTrue(DisasterSynchronizer(dao, api).syncPending())
             assertEquals(saved.copy(syncStatus = SyncStatus.CONFLICT,
-                syncError = "El servidor confirmó un radio diferente. Se conserva el reporte para revisión."),
+                syncError = "El servidor confirmó un contenido diferente. Se conserva el reporte para revisión."),
                 dao.findByRequestId(saved.clientRequestId))
         }
     }
@@ -340,6 +338,49 @@ class OfflineDisastersTest {
             assertTrue(viewModel.uiState.value is FormUiState.Error)
             assertEquals(0, server.requestCount)
         }
+    }
+
+
+    @Test
+    fun completeIncompatibleConfirmationsAreConflictsAndDoNotBlockOthers() = runTest {
+        for (response in listOf(confirmation().copy(nombre = "Otro"), confirmation().copy(severidad = 1),
+            confirmation().copy(latitud = 0.0), confirmation().copy(longitud = 0.0),
+            confirmation().copy(ubicacion = "Otra"), confirmation().copy(descripcion = "Otra"))) {
+            val rejected = pending()
+            val accepted = pending()
+            dao.insert(rejected)
+            dao.insert(accepted)
+            respond(200, response)
+            respond(201, confirmation(100 + server.requestCount))
+            assertTrue(DisasterSynchronizer(dao, api).syncPending())
+            val retained = checkNotNull(dao.findByRequestId(rejected.clientRequestId))
+            assertEquals(SyncStatus.CONFLICT, retained.syncStatus)
+            assertEquals(rejected, retained.copy(syncStatus = SyncStatus.PENDING, syncError = null))
+            assertEquals(SyncStatus.SYNCED, dao.findByRequestId(accepted.clientRequestId)?.syncStatus)
+        }
+    }
+
+    @Test
+    fun missingOrNullRequiredFieldsRemainPendingWithTheSameIdentity() = runTest {
+        val saved = pending().copy(latitud = 0.0, longitud = 0.0)
+        dao.insert(saved)
+        val complete = gson.toJsonTree(confirmation().copy(latitud = 0.0, longitud = 0.0)).asJsonObject
+        val synchronizer = DisasterSynchronizer(dao, api)
+        for (field in listOf("id", "nombre", "ubicacion", "severidad", "descripcion", "latitud", "longitud")) {
+            for (explicitNull in listOf(false, true)) {
+                val incomplete = complete.deepCopy()
+                if (explicitNull) incomplete.add(field, com.google.gson.JsonNull.INSTANCE) else incomplete.remove(field)
+                server.enqueue(MockResponse().setResponseCode(200).setHeader("Content-Type", "application/json").setBody(incomplete.toString()))
+                assertFalse(synchronizer.syncPending())
+                assertEquals(saved, dao.findByRequestId(saved.clientRequestId))
+                val request = checkNotNull(server.takeRequest(5, TimeUnit.SECONDS))
+                assertEquals(saved.clientRequestId, request.getHeader("Idempotency-Key"))
+                assertEquals(gson.toJson(saved.toReport()), request.body.readUtf8())
+            }
+        }
+        respond(200, confirmation().copy(latitud = 0.0, longitud = 0.0))
+        assertTrue(synchronizer.syncPending())
+        assertEquals(SyncStatus.SYNCED, dao.findByRequestId(saved.clientRequestId)?.syncStatus)
     }
 
 }
