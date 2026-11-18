@@ -62,6 +62,13 @@ class OfflineDisastersTest {
     private val gson = Gson()
     private val dao get() = database.disasterDao()
 
+    private fun assessmentRepository(): co.edu.javeriana.disasterplatform.disaster_mobile_client.data.assessments.AssessmentRepository {
+        val service=Retrofit.Builder().baseUrl(server.url("/")).addConverterFactory(GsonConverterFactory.create()).build()
+            .create(co.edu.javeriana.disasterplatform.disaster_mobile_client.data.assessments.AssessmentApi::class.java)
+        return co.edu.javeriana.disasterplatform.disaster_mobile_client.data.assessments.AssessmentRepository(context,database.assessmentDao(),service,
+            co.edu.javeriana.disasterplatform.disaster_mobile_client.data.assessments.AssessmentSessionManager(context,service),DisasterSyncScheduler(context))
+    }
+
     @Before
     fun setUp() {
         context = ApplicationProvider.getApplicationContext()
@@ -85,7 +92,7 @@ class OfflineDisastersTest {
         server.shutdown()
     }
 
-    private fun openDatabase() = Room.databaseBuilder(context, DisasterDatabase::class.java, databaseName).addMigrations(DisasterDatabase.MIGRATION_1_2, DisasterDatabase.MIGRATION_2_3, DisasterDatabase.MIGRATION_3_4).build()
+    private fun openDatabase() = Room.databaseBuilder(context, DisasterDatabase::class.java, databaseName).addMigrations(DisasterDatabase.MIGRATION_1_2, DisasterDatabase.MIGRATION_2_3, DisasterDatabase.MIGRATION_3_4, DisasterDatabase.MIGRATION_4_5).build()
 
     private fun pending(key: String = UUID.randomUUID().toString()) = DisasterEntity(
         key, report.nombre, report.ubicacion, report.severidad, report.descripcion, report.latitud, report.longitud,
@@ -236,7 +243,7 @@ class OfflineDisastersTest {
         val sync = DisasterSynchronizer(dao, offlineApi)
         val factory = object : WorkerFactory() {
             override fun createWorker(appContext: Context, workerClassName: String, workerParameters: WorkerParameters) =
-                SyncDisastersWorker(appContext, workerParameters, sync, DisasterRepository(offlineApi, dao, DisasterSyncScheduler(context)))
+                SyncDisastersWorker(appContext, workerParameters, sync, DisasterRepository(offlineApi, dao, DisasterSyncScheduler(context)), assessmentRepository())
         }
         val worker = TestListenableWorkerBuilder<SyncDisastersWorker>(context).setWorkerFactory(factory).build()
         assertEquals(ListenableWorker.Result.retry(), worker.doWork())
@@ -648,7 +655,7 @@ class OfflineDisastersTest {
         val repository = DisasterRepository(api, dao, DisasterSyncScheduler(context))
         val factory = object : WorkerFactory() {
             override fun createWorker(appContext: Context, workerClassName: String, workerParameters: WorkerParameters) =
-                SyncDisastersWorker(appContext, workerParameters, DisasterSynchronizer(dao, api), repository)
+                SyncDisastersWorker(appContext, workerParameters, DisasterSynchronizer(dao, api), repository, assessmentRepository())
         }
         val worker = TestListenableWorkerBuilder<SyncDisastersWorker>(context).setWorkerFactory(factory).build()
         assertEquals(ListenableWorker.Result.retry(), worker.doWork())

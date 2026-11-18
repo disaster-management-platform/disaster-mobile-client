@@ -17,14 +17,16 @@ class SyncDisastersWorker @AssistedInject constructor(
     @Assisted parameters: WorkerParameters,
     private val synchronizer: DisasterSynchronizer,
     private val repository: DisasterRepository,
+    private val assessments: co.edu.javeriana.disasterplatform.disaster_mobile_client.data.assessments.AssessmentRepository,
 ) : CoroutineWorker(context, parameters) {
     override suspend fun doWork(): Result {
         val uploaded = synchronizer.syncPending()
+        val assessmentUploaded = try { assessments.synchronize() } catch (_: android.database.sqlite.SQLiteException) { false }
         return try {
             repository.refreshDisastersAndTypes()
-            if (uploaded) Result.success() else Result.retry()
+            if (uploaded && assessmentUploaded) Result.success() else Result.retry()
         } catch (error: HttpException) {
-            if (uploaded && error.code() in listOf(401, 403, 404)) Result.success() else Result.retry()
+            if (uploaded && assessmentUploaded && error.code() in listOf(401, 403, 404)) Result.success() else Result.retry()
         } catch (_: IOException) { Result.retry() }
         catch (_: JsonParseException) { Result.retry() }
         catch (_: IllegalArgumentException) { Result.retry() }

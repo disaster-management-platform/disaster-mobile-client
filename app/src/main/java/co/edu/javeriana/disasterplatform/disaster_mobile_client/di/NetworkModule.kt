@@ -2,6 +2,7 @@ package co.edu.javeriana.disasterplatform.disaster_mobile_client.di
 
 import co.edu.javeriana.disasterplatform.disaster_mobile_client.BuildConfig
 import co.edu.javeriana.disasterplatform.disaster_mobile_client.data.remote.DisasterApi
+import co.edu.javeriana.disasterplatform.disaster_mobile_client.data.assessments.AssessmentApi
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -24,6 +25,10 @@ object NetworkModule {
             .addConverterFactory(ScalarsConverterFactory.create())
             .build()
     }
+
+    @Singleton
+    @Provides
+    fun providesAssessmentService(retrofit: Retrofit): AssessmentApi = retrofit.create(AssessmentApi::class.java)
 
     @Singleton
     @Provides

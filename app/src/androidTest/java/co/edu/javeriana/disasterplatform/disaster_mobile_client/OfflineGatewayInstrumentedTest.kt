@@ -42,7 +42,7 @@ class OfflineGatewayInstrumentedTest {
                 Thread.sleep(200)
             }
         }
-        val database = Room.databaseBuilder(context, DisasterDatabase::class.java, "disasters.db").addMigrations(DisasterDatabase.MIGRATION_1_2, DisasterDatabase.MIGRATION_2_3, DisasterDatabase.MIGRATION_3_4).build()
+        val database = Room.databaseBuilder(context, DisasterDatabase::class.java, "disasters.db").addMigrations(DisasterDatabase.MIGRATION_1_2, DisasterDatabase.MIGRATION_2_3, DisasterDatabase.MIGRATION_3_4, DisasterDatabase.MIGRATION_4_5).build()
         try {
             val dao = database.disasterDao()
             if (stage != "recover") {

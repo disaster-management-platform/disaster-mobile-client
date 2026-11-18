@@ -36,6 +36,7 @@ import co.edu.javeriana.disasterplatform.disaster_mobile_client.ui.theme.Command
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(navController: NavHostController) {
+    val context=androidx.compose.ui.platform.LocalContext.current
     Scaffold(
         topBar = {
             TopAppBar(
@@ -60,6 +61,9 @@ fun HomeScreen(navController: NavHostController) {
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
+            if(co.edu.javeriana.disasterplatform.disaster_mobile_client.BuildConfig.DEBUG) {
+                androidx.compose.material3.TextButton(onClick={context.startActivity(android.content.Intent().setClassName(context.packageName,context.packageName+".debug.AssessmentActivity"))}) { Text("Evaluación de daños (desarrollo)") }
+            }
             HomeOptionCard(
                 title = "Lista de Desastres",
                 description = "Consulta los reportes guardados y su estado de sincronización.",
