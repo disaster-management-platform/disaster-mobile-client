@@ -9,6 +9,7 @@ import co.edu.javeriana.disasterplatform.disaster_mobile_client.data.dto.Disaste
 
 object SyncStatus {
     const val PENDING = "PENDING"
+    const val ACCEPTED = "ACCEPTED"
     const val SYNCED = "SYNCED"
     const val ERROR = "ERROR"
     const val CONFLICT = "CONFLICT"

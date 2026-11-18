@@ -702,4 +702,20 @@ class OfflineDisastersTest {
         assertEquals("saved-cursor", dao.getSyncCursor()); assertEquals(false, dao.findType(12)?.isActive)
     }
 
+    @Test
+    fun acceptedReceiptsSurviveRestartAndConfirmWithoutBlockingNewReports() = runTest {
+        val first = pending(); val second = pending(); dao.insert(first); dao.insert(second)
+        respond(202, DisasterBatchResponse(listOf(result(first, status = "Accepted"), result(second, confirmation(88)))))
+        assertFalse(DisasterSynchronizer(dao, api).syncPending())
+        assertEquals(SyncStatus.ACCEPTED, dao.findByRequestId(first.clientRequestId)?.syncStatus)
+        assertEquals(SyncStatus.SYNCED, dao.findByRequestId(second.clientRequestId)?.syncStatus)
+        database.close(); database = openDatabase()
+        batch(result(first, confirmation(89), "AlreadyProcessed"))
+        assertTrue(DisasterSynchronizer(dao, api).syncPending())
+        assertEquals(SyncStatus.SYNCED, dao.findByRequestId(first.clientRequestId)?.syncStatus)
+        val original = operations(checkNotNull(server.takeRequest())).first()
+        val retried = operations(checkNotNull(server.takeRequest())).single()
+        assertEquals(original, retried)
+    }
+
 }

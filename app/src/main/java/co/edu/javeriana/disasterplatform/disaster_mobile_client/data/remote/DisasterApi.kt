@@ -15,6 +15,7 @@ import co.edu.javeriana.disasterplatform.disaster_mobile_client.data.dto.Disaste
 
 interface DisasterApi {
 
+    @retrofit2.http.Headers("Prefer: respond-async")
     @POST("desastres/batch")
     suspend fun createBatch(@Body request: DisasterBatchRequest): Response<DisasterBatchResponse>
 

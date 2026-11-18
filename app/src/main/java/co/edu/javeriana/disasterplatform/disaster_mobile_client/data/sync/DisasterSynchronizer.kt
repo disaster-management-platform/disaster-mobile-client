@@ -52,13 +52,17 @@ class DisasterSynchronizer @Inject constructor(
                 pending.forEach { dao.markError(it.clientRequestId, SyncStatus.ERROR, message) }
                 continue
             }
-            if (response.code() != 200) return false
+            if (response.code() !in listOf(200, 202)) return false
             val results = response.body()?.results
             if (results == null) { retry = true; continue }
             val correlated = results.filterNotNull().groupBy { it.clientRequestId }
             for (disaster in pending) {
                 val result = correlated[disaster.clientRequestId]?.singleOrNull()
                 when (result?.status) {
+                    "Accepted", "Processing" -> {
+                        dao.markError(disaster.clientRequestId, SyncStatus.ACCEPTED, "Recepción confirmada; resultado definitivo pendiente.")
+                        retry = true
+                    }
                     "Created", "AlreadyProcessed" -> {
                         val saved = try { result.disaster?.validated() }
                         catch (_: IllegalArgumentException) { null }
