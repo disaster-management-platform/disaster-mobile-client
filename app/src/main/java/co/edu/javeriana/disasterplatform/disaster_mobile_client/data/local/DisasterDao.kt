@@ -17,8 +17,8 @@ abstract class DisasterDao {
     @Query("SELECT * FROM disasters ORDER BY rowid DESC")
     abstract fun observeAll(): Flow<List<DisasterEntity>>
 
-    @Query("SELECT * FROM disasters WHERE syncStatus = 'PENDING' ORDER BY rowid LIMIT 50")
-    abstract suspend fun getPending(): List<DisasterEntity>
+    @Query("SELECT * FROM disasters WHERE syncStatus = 'PENDING' AND rowid > COALESCE((SELECT rowid FROM disasters WHERE clientRequestId = :after), 0) ORDER BY rowid LIMIT 50")
+    abstract suspend fun getPending(after: String? = null): List<DisasterEntity>
 
     @Query("SELECT * FROM disasters WHERE serverId = :serverId LIMIT 1")
     abstract suspend fun findByServerId(serverId: Int): DisasterEntity?

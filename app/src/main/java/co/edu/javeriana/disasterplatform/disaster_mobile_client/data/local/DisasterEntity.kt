@@ -37,6 +37,10 @@ data class DisasterEntity(
     val attentionLevel: Int? = null,
     val phase: String? = null,
     val version: Long? = null,
+    val registeringOrganizationId: String? = null,
+    val emergencyResponsibleId: String? = null,
+    val geographyJson: String? = null,
+    val organizationsJson: String? = null,
     val creationPayload: String? = null,
 ) {
     fun toReport(): DisasterReportDto = creationPayload?.let { Gson().fromJson(it, DisasterReportDto::class.java) }
@@ -50,4 +54,6 @@ fun DisasterInfoDto.toEntity(localId: String = "server:$id") = DisasterEntity(
     syncStatus = SyncStatus.SYNCED, serverId = id,
     disasterTypeId = disasterTypeId, startedAt = startedAt, registeredAt = registeredAt, updatedAt = updatedAt,
     attentionLevel = attentionLevel, phase = phase, version = version,
+    registeringOrganizationId = registeringOrganizationId, emergencyResponsibleId = emergencyResponsibleId,
+    geographyJson = geography?.toString(), organizationsJson = organizations?.let { Gson().toJson(it) },
 )

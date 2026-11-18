@@ -25,5 +25,9 @@ data class DisasterInfoDto(
     @SerializedName("updatedAt") val updatedAt: String? = null,
     @SerializedName("attentionLevel") val attentionLevel: Int? = null,
     @SerializedName("phase") val phase: String? = null,
+    @SerializedName("registeringOrganizationId") val registeringOrganizationId: String? = null,
+    @SerializedName("emergencyResponsibleId") val emergencyResponsibleId: String? = null,
+    @SerializedName("geography") val geography: com.google.gson.JsonObject? = null,
+    @SerializedName("organizations") val organizations: List<com.google.gson.JsonObject>? = null,
     @SerializedName("version") val version: Long? = null,
 )

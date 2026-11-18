@@ -16,7 +16,7 @@ object DatabaseModule {
     @Provides
     @Singleton
     fun provideDatabase(@ApplicationContext context: Context): DisasterDatabase =
-        Room.databaseBuilder(context, DisasterDatabase::class.java, "disasters.db").addMigrations(DisasterDatabase.MIGRATION_1_2, DisasterDatabase.MIGRATION_2_3).build()
+        Room.databaseBuilder(context, DisasterDatabase::class.java, "disasters.db").addMigrations(DisasterDatabase.MIGRATION_1_2, DisasterDatabase.MIGRATION_2_3, DisasterDatabase.MIGRATION_3_4).build()
 
     @Provides
     fun provideDisasterDao(database: DisasterDatabase) = database.disasterDao()

@@ -5,11 +5,18 @@ import androidx.room.RoomDatabase
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 
-@Database(entities = [DisasterEntity::class, DisasterTypeEntity::class, DisasterSyncState::class], version = 3, exportSchema = true)
+@Database(entities = [DisasterEntity::class, DisasterTypeEntity::class, DisasterSyncState::class], version = 4, exportSchema = true)
 abstract class DisasterDatabase : RoomDatabase() {
     abstract fun disasterDao(): DisasterDao
 
     companion object {
+        val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                for (column in listOf("registeringOrganizationId", "emergencyResponsibleId", "geographyJson", "organizationsJson"))
+                    db.execSQL("ALTER TABLE disasters ADD COLUMN $column TEXT")
+            }
+        }
+
         val MIGRATION_2_3 = object : Migration(2, 3) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("CREATE TABLE IF NOT EXISTS disaster_sync_state (name TEXT NOT NULL, cursor TEXT NOT NULL, PRIMARY KEY(name))")

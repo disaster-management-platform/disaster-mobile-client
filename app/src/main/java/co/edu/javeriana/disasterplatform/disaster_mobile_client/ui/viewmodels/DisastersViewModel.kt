@@ -41,7 +41,7 @@ class DisastersViewModel @Inject constructor(
         _uiState.update { it.copy(isRefreshing = true, message = null) }
         viewModelScope.launch {
             try {
-                repository.refreshDisasters()
+                repository.refreshDisastersAndTypes()
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (_: Exception) {

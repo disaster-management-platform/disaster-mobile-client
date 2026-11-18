@@ -4,6 +4,7 @@ import co.edu.javeriana.disasterplatform.disaster_mobile_client.data.dto.Disaste
 import co.edu.javeriana.disasterplatform.disaster_mobile_client.data.dto.DisasterOperation
 import co.edu.javeriana.disasterplatform.disaster_mobile_client.data.dto.DisasterInfoDto
 import co.edu.javeriana.disasterplatform.disaster_mobile_client.data.dto.DisasterReportDto
+import co.edu.javeriana.disasterplatform.disaster_mobile_client.data.local.DisasterEntity
 import co.edu.javeriana.disasterplatform.disaster_mobile_client.data.local.DisasterDao
 import co.edu.javeriana.disasterplatform.disaster_mobile_client.data.local.SyncStatus
 import co.edu.javeriana.disasterplatform.disaster_mobile_client.data.remote.DisasterApi
@@ -19,18 +20,42 @@ class DisasterSynchronizer @Inject constructor(
 ) {
     /** false conserva los pendientes para un reintento con la misma clave. */
     suspend fun syncPending(): Boolean {
+        var after: String? = null
+        var retry = false
+        val batches = ArrayDeque<List<DisasterEntity>>()
         while (true) {
-            val pending = dao.getPending()
-            if (pending.isEmpty()) return true
+            if (batches.isEmpty()) {
+                val pending = dao.getPending(after)
+                if (pending.isEmpty()) return !retry
+                after = pending.last().clientRequestId
+                batches.addLast(pending)
+            }
+            val pending = batches.removeFirst()
             val response = try {
                 api.createBatch(DisasterBatchRequest(
                     pending.map { DisasterOperation(it.clientRequestId, it.toReport()) }))
             } catch (_: IOException) { return false }
             catch (_: JsonParseException) { return false }
+            if (response.code() == 413 && pending.size > 1) {
+                val half = pending.size / 2
+                batches.addFirst(pending.drop(half))
+                batches.addFirst(pending.take(half))
+                continue
+            }
+            if (response.code() in 400..499 && response.code() !in listOf(408, 425, 429)) {
+                val message = when (response.code()) {
+                    401, 403 -> "Autorización rechazada; revise el acceso antes de reintentar."
+                    413 -> "El reporte supera el tamaño admitido; requiere revisión."
+                    400, 422 -> "El servidor rechazó el lote; revise los datos y la configuración."
+                    else -> "Configuración o contrato Batch rechazado (HTTP ${response.code()}); requiere revisión."
+                }
+                pending.forEach { dao.markError(it.clientRequestId, SyncStatus.ERROR, message) }
+                continue
+            }
             if (response.code() != 200) return false
-            val results = response.body()?.results ?: return false
+            val results = response.body()?.results
+            if (results == null) { retry = true; continue }
             val correlated = results.filterNotNull().groupBy { it.clientRequestId }
-            var retry = false
             for (disaster in pending) {
                 val result = correlated[disaster.clientRequestId]?.singleOrNull()
                 when (result?.status) {
@@ -57,7 +82,6 @@ class DisasterSynchronizer @Inject constructor(
                     else -> retry = true
                 }
             }
-            if (retry) return false
         }
     }
 

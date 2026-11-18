@@ -19,13 +19,12 @@ class SyncDisastersWorker @AssistedInject constructor(
     private val repository: DisasterRepository,
 ) : CoroutineWorker(context, parameters) {
     override suspend fun doWork(): Result {
-        if (!synchronizer.syncPending()) return Result.retry()
+        val uploaded = synchronizer.syncPending()
         return try {
-            repository.refreshDisasters()
-            repository.refreshTypes()
-            Result.success()
+            repository.refreshDisastersAndTypes()
+            if (uploaded) Result.success() else Result.retry()
         } catch (error: HttpException) {
-            if (error.code() in listOf(401, 403, 404)) Result.success() else Result.retry()
+            if (uploaded && error.code() in listOf(401, 403, 404)) Result.success() else Result.retry()
         } catch (_: IOException) { Result.retry() }
         catch (_: JsonParseException) { Result.retry() }
         catch (_: IllegalArgumentException) { Result.retry() }

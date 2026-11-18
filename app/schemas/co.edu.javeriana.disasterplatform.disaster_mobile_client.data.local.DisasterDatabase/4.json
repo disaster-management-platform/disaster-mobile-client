@@ -1,0 +1,222 @@
+{
+  "formatVersion": 1,
+  "database": {
+    "version": 4,
+    "identityHash": "c87289a0d648d89a65e0b5f22e7b8d48",
+    "entities": [
+      {
+        "tableName": "disasters",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`clientRequestId` TEXT NOT NULL, `nombre` TEXT NOT NULL, `ubicacion` TEXT NOT NULL, `severidad` INTEGER NOT NULL, `descripcion` TEXT NOT NULL, `latitud` REAL NOT NULL, `longitud` REAL NOT NULL, `radio` REAL, `syncStatus` TEXT NOT NULL, `serverId` INTEGER, `syncError` TEXT, `disasterTypeId` INTEGER, `startedAt` TEXT, `registeredAt` TEXT, `updatedAt` TEXT, `attentionLevel` INTEGER, `phase` TEXT, `version` INTEGER, `registeringOrganizationId` TEXT, `emergencyResponsibleId` TEXT, `geographyJson` TEXT, `organizationsJson` TEXT, `creationPayload` TEXT, PRIMARY KEY(`clientRequestId`))",
+        "fields": [
+          {
+            "fieldPath": "clientRequestId",
+            "columnName": "clientRequestId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "nombre",
+            "columnName": "nombre",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "ubicacion",
+            "columnName": "ubicacion",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "severidad",
+            "columnName": "severidad",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "descripcion",
+            "columnName": "descripcion",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "latitud",
+            "columnName": "latitud",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "longitud",
+            "columnName": "longitud",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "radio",
+            "columnName": "radio",
+            "affinity": "REAL"
+          },
+          {
+            "fieldPath": "syncStatus",
+            "columnName": "syncStatus",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "serverId",
+            "columnName": "serverId",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "syncError",
+            "columnName": "syncError",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "disasterTypeId",
+            "columnName": "disasterTypeId",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "startedAt",
+            "columnName": "startedAt",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "registeredAt",
+            "columnName": "registeredAt",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "updatedAt",
+            "columnName": "updatedAt",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "attentionLevel",
+            "columnName": "attentionLevel",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "phase",
+            "columnName": "phase",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "version",
+            "columnName": "version",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "registeringOrganizationId",
+            "columnName": "registeringOrganizationId",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "emergencyResponsibleId",
+            "columnName": "emergencyResponsibleId",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "geographyJson",
+            "columnName": "geographyJson",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "organizationsJson",
+            "columnName": "organizationsJson",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "creationPayload",
+            "columnName": "creationPayload",
+            "affinity": "TEXT"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "clientRequestId"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_disasters_serverId",
+            "unique": true,
+            "columnNames": [
+              "serverId"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_disasters_serverId` ON `${TABLE_NAME}` (`serverId`)"
+          },
+          {
+            "name": "index_disasters_syncStatus",
+            "unique": false,
+            "columnNames": [
+              "syncStatus"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_disasters_syncStatus` ON `${TABLE_NAME}` (`syncStatus`)"
+          }
+        ]
+      },
+      {
+        "tableName": "disaster_types",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER NOT NULL, `name` TEXT NOT NULL, `isActive` INTEGER NOT NULL, PRIMARY KEY(`id`))",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "name",
+            "columnName": "name",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "isActive",
+            "columnName": "isActive",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id"
+          ]
+        }
+      },
+      {
+        "tableName": "disaster_sync_state",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`name` TEXT NOT NULL, `cursor` TEXT NOT NULL, PRIMARY KEY(`name`))",
+        "fields": [
+          {
+            "fieldPath": "name",
+            "columnName": "name",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "cursor",
+            "columnName": "cursor",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "name"
+          ]
+        }
+      }
+    ],
+    "setupQueries": [
+      "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'c87289a0d648d89a65e0b5f22e7b8d48')"
+    ]
+  }
+}

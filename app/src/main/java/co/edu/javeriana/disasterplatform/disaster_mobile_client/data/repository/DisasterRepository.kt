@@ -24,6 +24,17 @@ class DisasterRepository @Inject constructor(
     fun observeDisasters() = dao.observeAll()
     fun observeTypes() = dao.observeTypes()
 
+    suspend fun refreshDisastersAndTypes() {
+        var failure: Exception? = null
+        try { refreshTypes() }
+        catch (cancelled: CancellationException) { throw cancelled }
+        catch (error: Exception) { failure = error }
+        try { refreshDisasters() }
+        catch (cancelled: CancellationException) { throw cancelled }
+        catch (error: Exception) { if (failure == null) failure = error }
+        failure?.let { throw it }
+    }
+
     suspend fun refreshTypes() {
         val types = api.getDisasterTypes()
         require(types.map { it.id }.distinct().size == types.size) { "Catálogo con identificadores duplicados." }

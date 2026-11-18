@@ -43,5 +43,40 @@ fun DisasterInfoDto.validated(requireVersion: Boolean = false): DisasterInfoDto 
         disasterTypeId, startedAt, attentionLevel).validated()
     require(version == null && !requireVersion || version != null && version > 0) { "Versión inválida o ausente." }
     require(phase == null && !requireVersion || phase in setOf("Detected", "Registered", "Assessment", "Response", "Recovery", "Reconstruction", "Closed")) { "Fase inválida o ausente." }
+    try {
+        for (reference in listOf(registeringOrganizationId, emergencyResponsibleId))
+            require(reference == null || reference.isNotBlank() && reference.length <= 200) { "Referencia de organismo inválida." }
+        require(organizations == null || organizations.size <= 50 && organizations.all { organization ->
+            val id = organization?.get("organizationId")
+            val responsibility = organization?.get("responsibility")
+            id != null && id.isJsonPrimitive && id.asJsonPrimitive.isString && id.asString.isNotBlank() && id.asString.length <= 200
+                && responsibility != null && responsibility.isJsonPrimitive && responsibility.asJsonPrimitive.isString
+                && responsibility.asString.isNotBlank() && responsibility.asString.length <= 500
+        }) { "Asociaciones inválidas." }
+        geography?.let { area ->
+            require(area.toString().toByteArray(Charsets.UTF_8).size <= 65536) { "Geografía demasiado grande." }
+            for (name in listOf("municipalities", "neighborhoods", "riskZones")) {
+                val names = area.get(name)
+                require(names == null || names.isJsonNull || names.isJsonArray && names.asJsonArray.size() <= 100
+                    && names.asJsonArray.all { it.isJsonPrimitive && it.asJsonPrimitive.isString && it.asString.isNotBlank() && it.asString.length <= 200 }) { "Zonas inválidas." }
+            }
+            area.get("polygon")?.takeUnless { it.isJsonNull }?.let { polygon ->
+                require(polygon.isJsonObject && polygon.asJsonObject.get("type")?.asString == "Polygon") { "Polígono inválido." }
+                val rings = polygon.asJsonObject.getAsJsonArray("coordinates")
+                require(rings != null && rings.size() in 1..50 && rings.sumOf { it.asJsonArray.size() } <= 2000) { "Coordenadas inválidas." }
+                for (ring in rings) {
+                    require(ring.isJsonArray && ring.asJsonArray.size() >= 4 && ring.asJsonArray.first() == ring.asJsonArray.last()) { "Anillo inválido." }
+                    for (point in ring.asJsonArray) {
+                        require(point.isJsonArray && point.asJsonArray.size() == 2) { "Coordenada inválida." }
+                        require(point.asJsonArray.all { it.isJsonPrimitive && it.asJsonPrimitive.isNumber }) { "Coordenada no numérica." }
+                        val x = point.asJsonArray[0].asDouble; val y = point.asJsonArray[1].asDouble
+                        require(x.isFinite() && y.isFinite() && x in -180.0..180.0 && y in -90.0..90.0) { "Coordenada fuera de WGS84." }
+                    }
+                }
+            }
+        }
+    } catch (error: RuntimeException) {
+        throw IllegalArgumentException("Información geográfica o de organismos inválida.", error)
+    }
     return copy(startedAt = normalized.startedAt, registeredAt = normalizedUtc(registeredAt), updatedAt = normalizedUtc(updatedAt))
 }

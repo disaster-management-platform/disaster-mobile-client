@@ -27,6 +27,8 @@ import co.edu.javeriana.disasterplatform.disaster_mobile_client.ui.theme.Command
 import co.edu.javeriana.disasterplatform.disaster_mobile_client.ui.viewmodels.DisastersViewModel
 import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
+import com.google.gson.JsonParser
+import com.google.maps.android.compose.Polygon
 import com.google.maps.android.compose.Circle
 import com.google.maps.android.compose.GoogleMap
 import com.google.maps.android.compose.Marker
@@ -130,6 +132,15 @@ fun MapScreen(
                             strokeColor = strokeColor,
                             strokeWidth = 3f
                         )
+
+                        val rings = remember(disaster.geographyJson) {
+                            disaster.geographyJson?.let { json ->
+                                JsonParser.parseString(json).asJsonObject.get("polygon")?.takeIf { it.isJsonObject }?.asJsonObject?.getAsJsonArray("coordinates")
+                                    ?.map { ring -> ring.asJsonArray.map { point -> LatLng(point.asJsonArray[1].asDouble, point.asJsonArray[0].asDouble) } }
+                            }
+                        }
+                        if (!rings.isNullOrEmpty()) Polygon(points = rings.first(), holes = rings.drop(1),
+                            fillColor = fillColor, strokeColor = strokeColor)
 
                         Marker(
                             state = rememberMarkerState(position = position),
