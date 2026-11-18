@@ -96,7 +96,7 @@ class ReactiveBindingInstrumentedTest {
                     else -> "Guardado localmente, pendiente de sincronización"
                 })
                 if (status == SyncStatus.SYNCED) {
-                    dao.cacheRemote(listOf(DisasterInfoDto(2_000_000_000, "Descarga reactiva", "Bogotá", 4,
+                    dao.applySyncPage(null, "reactive-page", listOf(DisasterInfoDto(2_000_000_000, "Descarga reactiva", "Bogotá", 4,
                         "Nuevo estado", 4.7, -74.0, phase = "Recovery", version = 3)))
                     displayed("Descarga reactiva")
                 }

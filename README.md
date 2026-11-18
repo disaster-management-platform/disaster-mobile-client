@@ -41,7 +41,7 @@ El mapa requiere una clave de Google Maps. Agrega `MAPS_API_KEY=tu_clave` a `loc
 
 El formulario valida los campos y el repositorio genera un UUID. Guarda el reporte en Room con ese UUID como `clientRequestId` y estado `PENDING`. La confirmación que ves en pantalla significa que el reporte quedó guardado en el teléfono; no espera a que responda el servidor.
 
-Después se programa `SyncDisastersWorker` con WorkManager y una restricción de conectividad. El worker lee los pendientes y envía cada uno a `POST /api/desastres`, usando su `clientRequestId` en la cabecera `Idempotency-Key`. Esa clave se crea una sola vez y se conserva durante todos los reintentos, incluso después de cerrar la app.
+Después se programa `SyncDisastersWorker` con WorkManager y una restricción de conectividad. El worker lee hasta 50 pendientes y los envía a POST /api/desastres/batch, conservando clientRequestId y el cuerpo original por operación. Esa clave se crea una sola vez y se conserva durante todos los reintentos, incluso después de cerrar la app.
 
 El formulario permite seleccionar un tipo previamente descargado, una fecha de inicio UTC y una clasificación de atención independiente de la severidad. El catálogo público se guarda en Room y puede consultarse sin conectividad; si todavía no se descargó, se conserva el registro sin tipo y se muestra que está pendiente. Los tipos desactivados mantienen sus referencias históricas.
 
@@ -62,7 +62,7 @@ Si se pierde una respuesta, el reporte sigue pendiente. El próximo intento llev
 
 Los problemas de red, `408`, `429` y errores `5xx` conservan el pendiente y se reintentan con espera exponencial, comenzando en 30 segundos. Los demás errores HTTP quedan visibles en la lista; un `400` o `409` no se reintenta sin parar ni genera otra clave automáticamente. Esta versión no incluye una pantalla para corregir esos reportes.
 
-Room versión 2 utiliza una migración incremental desde la versión 1: conserva UUID, identificadores remotos, Radio, estados y pendientes, sin inventar atributos históricos. Cada nueva creación guarda su cuerpo original para los reintentos. Un recibo POST histórico no reemplaza una versión más reciente obtenida mediante GET. Las descargas se validan completas antes de almacenarse; las respuestas inválidas conservan los datos locales.
+Room versión 3 utiliza migraciones incrementales desde las versiones 1 y 2: conserva UUID, identificadores remotos, Radio, estados y pendientes, sin inventar atributos históricos. Cada nueva creación guarda su cuerpo original para los reintentos. Un recibo POST histórico no reemplaza una versión más reciente obtenida mediante GET. Las descargas se validan completas antes de almacenarse; las respuestas inválidas conservan los datos locales.
 
 La lista, el catálogo y los marcadores leen siempre de Room mediante Flow, StateFlow y collectAsStateWithLifecycle. Al actualizar se descargan los reportes del servidor y se incorporan a la base local sin borrar los pendientes. Si no hay conexión, puedes seguir consultando lo que ya estaba guardado.
 
@@ -97,3 +97,7 @@ Para comprobar el flujo completo en el teléfono:
 5. Consulta `http://localhost:5080/api/desastres` desde el computador. Debe haber un solo registro para esa operación.
 
 Documentación de consulta: [Room](https://developer.android.com/training/data-storage/room), [WorkManager](https://developer.android.com/develop/background-work/background-tasks/persistent/getting-started/define-work) e [integración con Hilt](https://developer.android.com/training/dependency-injection/hilt-jetpack).
+
+La subida procesa los resultados del lote individualmente: Created y AlreadyProcessed requieren una confirmación válida; ValidationError y Conflict son visibles como ERROR y CONFLICT. Resultados ausentes, ambiguos, inválidos o RetryableFailure permanecen PENDING con la misma identidad. Un fallo completo del lote no confirma ninguna operación. La programación conserva un trabajo pendiente, o reserva un recorrido posterior cuando ya hay uno ejecutándose, evitando descargar el catálogo y los desastres una vez por cada registro offline.
+
+Las descargas utilizan GET /api/desastres/sync en páginas de hasta 50. Room guarda cada página y su cursor en la misma transacción; una respuesta inválida o un fallo local no avanza el cursor. Las descargas concurrentes verifican el cursor anterior antes de confirmar y nunca reemplazan versiones más recientes, pendientes, errores o conflictos. Después de 20 páginas el trabajo conserva el progreso y reintenta. La migración 2→3 añade únicamente el estado de sincronización, preservando catálogo, CreationPayload, UUID, Radio, versiones y estados anteriores.

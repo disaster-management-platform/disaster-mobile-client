@@ -1,5 +1,7 @@
 package co.edu.javeriana.disasterplatform.disaster_mobile_client.data.sync
 
+import co.edu.javeriana.disasterplatform.disaster_mobile_client.data.dto.DisasterBatchRequest
+import co.edu.javeriana.disasterplatform.disaster_mobile_client.data.dto.DisasterOperation
 import co.edu.javeriana.disasterplatform.disaster_mobile_client.data.dto.DisasterInfoDto
 import co.edu.javeriana.disasterplatform.disaster_mobile_client.data.dto.DisasterReportDto
 import co.edu.javeriana.disasterplatform.disaster_mobile_client.data.local.DisasterDao
@@ -10,7 +12,6 @@ import co.edu.javeriana.disasterplatform.disaster_mobile_client.data.validated
 import co.edu.javeriana.disasterplatform.disaster_mobile_client.data.normalizedUtc
 import java.io.IOException
 import javax.inject.Inject
-import retrofit2.HttpException
 
 class DisasterSynchronizer @Inject constructor(
     private val dao: DisasterDao,
@@ -21,40 +22,42 @@ class DisasterSynchronizer @Inject constructor(
         while (true) {
             val pending = dao.getPending()
             if (pending.isEmpty()) return true
+            val response = try {
+                api.createBatch(DisasterBatchRequest(
+                    pending.map { DisasterOperation(it.clientRequestId, it.toReport()) }))
+            } catch (_: IOException) { return false }
+            catch (_: JsonParseException) { return false }
+            if (response.code() != 200) return false
+            val results = response.body()?.results ?: return false
+            val correlated = results.filterNotNull().groupBy { it.clientRequestId }
+            var retry = false
             for (disaster in pending) {
-                try {
-                    val report = disaster.toReport()
-                    val response = api.createDisaster(disaster.clientRequestId, report)
-                    if (!response.isSuccessful) throw HttpException(response)
-                    val saved = response.body()
-                    if (response.code() !in listOf(200, 201) || saved == null)
-                        throw IOException("El servidor no confirmó el desastre.")
-                    val valid = try { saved.validated() }
-                    catch (_: IllegalArgumentException) { throw IOException("Confirmación incompleta o inválida.") }
-                    if (!valid.confirms(report)) {
-                        dao.markError(disaster.clientRequestId, SyncStatus.CONFLICT,
-                            "El servidor confirmó un contenido diferente. Se conserva el reporte para revisión.")
-                        continue
+                val result = correlated[disaster.clientRequestId]?.singleOrNull()
+                when (result?.status) {
+                    "Created", "AlreadyProcessed" -> {
+                        val saved = try { result.disaster?.validated() }
+                        catch (_: IllegalArgumentException) { null }
+                        if (saved == null) { retry = true; continue }
+                        if (!saved.confirms(disaster.toReport())) {
+                            dao.markError(disaster.clientRequestId, SyncStatus.CONFLICT,
+                                "El servidor confirmó un contenido diferente. Se conserva el reporte para revisión.")
+                        } else dao.markSynced(disaster.clientRequestId, saved.id, saved)
                     }
-                    dao.markSynced(disaster.clientRequestId, valid.id, valid)
-                } catch (error: HttpException) {
-                    val code = error.code()
-                    if (code == 408 || code == 429 || code >= 500) return false
-                    val status = if (code == 409) SyncStatus.CONFLICT else SyncStatus.ERROR
-                    val message = when (code) {
-                        400 -> "El servidor rechazó los datos del reporte (400)."
-                        409 -> if (disaster.radio == null)
-                            "La clave ya está registrada con otros datos (409). El radio histórico es desconocido; requiere revisión."
-                        else "La clave ya está registrada con otros datos (409)."
-                        else -> "No se pudo sincronizar el reporte (HTTP $code)."
+                    "ValidationError" -> {
+                        val messages = result.errors?.values
+                        if (messages.isNullOrEmpty() || messages.any { it.isNullOrEmpty() || it.any { text -> text.isNullOrBlank() } }) {
+                            retry = true; continue
+                        }
+                        dao.markError(disaster.clientRequestId, SyncStatus.ERROR,
+                            "El servidor rechazó los datos del reporte: " + messages.filterNotNull().flatten().joinToString(" "))
                     }
-                    dao.markError(disaster.clientRequestId, status, message)
-                } catch (_: IOException) {
-                    return false
-                } catch (_: JsonParseException) {
-                    return false
+                    "Conflict" -> dao.markError(disaster.clientRequestId, SyncStatus.CONFLICT,
+                        if (disaster.radio == null) "La clave ya está registrada con otros datos. El radio histórico es desconocido; requiere revisión."
+                        else "La clave ya está registrada con otros datos; requiere revisión.")
+                    else -> retry = true
                 }
             }
+            if (retry) return false
         }
     }
 

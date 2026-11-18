@@ -62,6 +62,20 @@ abstract class DisasterDao {
         }
     }
 
+    @Query("SELECT cursor FROM disaster_sync_state WHERE name = 'disasters'")
+    abstract suspend fun getSyncCursor(): String?
+
+    @Upsert
+    protected abstract suspend fun saveSyncState(state: DisasterSyncState)
+
+    @Transaction
+    open suspend fun applySyncPage(expectedCursor: String?, nextCursor: String, items: List<DisasterInfoDto>): Boolean {
+        if (getSyncCursor() != expectedCursor) return false
+        cacheRemote(items)
+        saveSyncState(DisasterSyncState(cursor = nextCursor))
+        return true
+    }
+
     @Query("SELECT * FROM disaster_types ORDER BY id")
     abstract fun observeTypes(): Flow<List<DisasterTypeEntity>>
 

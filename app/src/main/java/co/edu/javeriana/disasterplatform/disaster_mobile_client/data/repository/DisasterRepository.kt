@@ -10,8 +10,11 @@ import co.edu.javeriana.disasterplatform.disaster_mobile_client.data.remote.Disa
 import co.edu.javeriana.disasterplatform.disaster_mobile_client.data.sync.DisasterSyncScheduler
 import co.edu.javeriana.disasterplatform.disaster_mobile_client.data.validated
 import java.util.UUID
+import java.io.IOException
 import javax.inject.Inject
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.withContext
 
 class DisasterRepository @Inject constructor(
     private val api: DisasterApi,
@@ -32,9 +35,18 @@ class DisasterRepository @Inject constructor(
     }
 
     suspend fun refreshDisasters() {
-        val remote = api.getDisasters().map { it.validated(requireVersion = true) }
-        require(remote.map { it.id }.distinct().size == remote.size) { "Respuesta con identificadores duplicados." }
-        dao.cacheRemote(remote)
+        repeat(20) {
+            val cursor = dao.getSyncCursor()
+            val page = api.syncDisasters(cursor)
+            require(page.items != null && page.nextCursor != null && page.nextCursor.isNotBlank()
+                && page.nextCursor.length <= 64 && page.hasMore != null) { "Página incompleta." }
+            require(page.items.size <= 50 && (!page.hasMore || page.items.isNotEmpty() && page.nextCursor != cursor)) { "Página inválida." }
+            val remote = page.items.map { requireNotNull(it) { "Registro ausente en la página." }.validated(requireVersion = true) }
+            require(remote.map { it.id }.distinct().size == remote.size) { "Respuesta con identificadores duplicados." }
+            if (!dao.applySyncPage(cursor, page.nextCursor, remote)) return@repeat
+            if (!page.hasMore) return
+        }
+        throw IOException("La descarga continúa desde la última página confirmada.")
     }
 
     suspend fun createDisaster(report: DisasterReportDto): Result<DisasterEntity> = try {
@@ -49,7 +61,7 @@ class DisasterRepository @Inject constructor(
         )
         dao.insert(disaster)
         try {
-            syncScheduler.enqueue()
+            withContext(NonCancellable) { syncScheduler.enqueue() }
         } catch (error: IllegalStateException) {
             // El reporte ya está guardado. Al abrir la app se vuelve a programar.
             Log.w("DisasterRepository", "No se pudo programar la sincronización", error)
