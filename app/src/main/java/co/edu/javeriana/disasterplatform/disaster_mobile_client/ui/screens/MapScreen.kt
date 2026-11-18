@@ -134,7 +134,7 @@ fun MapScreen(
                         Marker(
                             state = rememberMarkerState(position = position),
                             title = disaster.nombre,
-                            snippet = "${disaster.ubicacion} | Radio: ${radiusMeters?.let { "$it m" } ?: "desconocido"} (Severidad: ${disaster.severidad})"
+                            snippet = "${disaster.ubicacion} | Radio: ${radiusMeters?.let { "$it m" } ?: "desconocido"} (Severidad: ${disaster.severidad}) | Tipo: ${disaster.disasterTypeId ?: "pendiente"} | Atención: ${disaster.attentionLevel ?: "sin clasificar"} | ${disaster.phase ?: "pendiente"}"
                         )
                     }
                 }

@@ -81,7 +81,7 @@ class OfflineDisastersTest {
         server.shutdown()
     }
 
-    private fun openDatabase() = Room.databaseBuilder(context, DisasterDatabase::class.java, databaseName).build()
+    private fun openDatabase() = Room.databaseBuilder(context, DisasterDatabase::class.java, databaseName).addMigrations(DisasterDatabase.MIGRATION_1_2).build()
 
     private fun pending(key: String = UUID.randomUUID().toString()) = DisasterEntity(
         key, report.nombre, report.ubicacion, report.severidad, report.descripcion, report.latitud, report.longitud,
@@ -89,6 +89,7 @@ class OfflineDisastersTest {
 
     private fun confirmation(id: Int = 7) = DisasterInfoDto(
         id, report.nombre, report.ubicacion, report.severidad, report.descripcion, report.latitud, report.longitud,
+        phase = "Registered", version = 1,
     )
 
     private fun respond(code: Int, body: Any? = null) {
@@ -218,13 +219,14 @@ class OfflineDisastersTest {
         dao.insert(saved)
         val offlineApi = object : DisasterApi {
             override suspend fun getDisasters(): List<DisasterInfoDto> = throw IOException()
+            override suspend fun getDisasterTypes(): List<co.edu.javeriana.disasterplatform.disaster_mobile_client.data.dto.DisasterTypeDto> = throw IOException()
             override suspend fun createDisaster(requestId: String, report: DisasterReportDto): Response<DisasterInfoDto> =
                 throw IOException("Sin conexión")
         }
         val sync = DisasterSynchronizer(dao, offlineApi)
         val factory = object : WorkerFactory() {
             override fun createWorker(appContext: Context, workerClassName: String, workerParameters: WorkerParameters) =
-                SyncDisastersWorker(appContext, workerParameters, sync)
+                SyncDisastersWorker(appContext, workerParameters, sync, DisasterRepository(offlineApi, dao, DisasterSyncScheduler(context)))
         }
         val worker = TestListenableWorkerBuilder<SyncDisastersWorker>(context).setWorkerFactory(factory).build()
         assertEquals(ListenableWorker.Result.retry(), worker.doWork())
@@ -381,6 +383,93 @@ class OfflineDisastersTest {
         respond(200, confirmation().copy(latitud = 0.0, longitud = 0.0))
         assertTrue(synchronizer.syncPending())
         assertEquals(SyncStatus.SYNCED, dao.findByRequestId(saved.clientRequestId)?.syncStatus)
+    }
+
+    @Test
+    fun downloadsAreValidatedBeforeWritingAndOlderVersionsNeverReplaceNewerState() = runTest {
+        val saved = pending().copy(syncStatus = SyncStatus.SYNCED, serverId = 7, version = 3, phase = "Recovery")
+        val conflict = pending().copy(syncStatus = SyncStatus.CONFLICT, serverId = 8, version = 2, syncError = "Revisión")
+        dao.insert(saved); dao.insert(conflict)
+        val repository = DisasterRepository(api, dao, DisasterSyncScheduler(context))
+        val valid = confirmation().copy(version = 4, phase = "Reconstruction")
+        val json = gson.toJsonTree(valid).asJsonObject
+        for (field in listOf("id", "latitud", "longitud", "version", "phase", "nombre")) {
+            val invalid = json.deepCopy(); invalid.remove(field)
+            server.enqueue(MockResponse().setResponseCode(200).setHeader("Content-Type", "application/json").setBody("[$invalid]"))
+            try { repository.refreshDisasters(); fail("No debe guardar una respuesta incompleta") }
+            catch (_: IllegalArgumentException) { }
+            assertEquals(saved, dao.findByRequestId(saved.clientRequestId))
+        }
+        respond(200, emptyList<DisasterInfoDto>()); repository.refreshDisasters()
+        assertEquals(2, dao.observeAll().first().size)
+        respond(200, listOf(valid.copy(version = 2, nombre = "Antiguo"))); repository.refreshDisasters()
+        assertEquals(saved, dao.findByRequestId(saved.clientRequestId))
+        respond(200, listOf(valid.copy(nombre = "Actual"), confirmation(8).copy(version = 5))); repository.refreshDisasters()
+        assertEquals("Actual", dao.findByServerId(7)?.nombre)
+        assertEquals(4L, dao.findByServerId(7)?.version)
+        assertEquals(conflict, dao.findByRequestId(conflict.clientRequestId))
+    }
+
+    @Test
+    fun historicalCreationConfirmationKeepsNewerDownloadedStateAndItsOriginalCommand() = runTest {
+        val saved = pending().copy(creationPayload = gson.toJson(report))
+        dao.insert(saved)
+        dao.cacheRemote(listOf(confirmation(7).copy(nombre = "Estado posterior", version = 5, phase = "Reconstruction")))
+        respond(200, confirmation(7))
+        assertTrue(DisasterSynchronizer(dao, api).syncPending())
+        val reconciled = checkNotNull(dao.findByRequestId(saved.clientRequestId))
+        assertEquals(SyncStatus.SYNCED, reconciled.syncStatus)
+        assertEquals("Estado posterior", reconciled.nombre)
+        assertEquals(5L, reconciled.version)
+        assertEquals(report, reconciled.toReport())
+        assertEquals(1, dao.observeAll().first().size)
+    }
+
+    @Test
+    fun catalogAndNewCreationAttributesSurviveOfflineReopeningWithoutDefaults() = runTest {
+        val repository = DisasterRepository(api, dao, DisasterSyncScheduler(context))
+        server.enqueue(MockResponse().setResponseCode(200).setHeader("Content-Type", "application/json")
+            .setBody("[{\"id\":12,\"name\":\"Tipo descargado\",\"isActive\":true}]"))
+        repository.refreshTypes()
+        assertEquals("/api/tipos-desastre", server.takeRequest().path)
+        database.close(); database = openDatabase()
+        val reopened = DisasterRepository(api, dao, DisasterSyncScheduler(context))
+        assertEquals(12, dao.observeTypes().first().single().id)
+        val operation = report.copy(disasterTypeId = 12, startedAt = "2026-11-17T12:00:00Z", attentionLevel = 4, radio = 1234.75)
+        val saved = reopened.createDisaster(operation).getOrThrow()
+        database.close(); database = openDatabase()
+        assertEquals(operation, dao.findByRequestId(saved.clientRequestId)?.toReport())
+        assertEquals(1, server.requestCount)
+        dao.cacheTypes(listOf(co.edu.javeriana.disasterplatform.disaster_mobile_client.data.local.DisasterTypeEntity(12, "Tipo descargado", false)))
+        assertEquals(operation, dao.findByRequestId(saved.clientRequestId)?.toReport())
+    }
+
+    @Test
+    fun migrationPreservesVersionOneRowsAndAllSyncStates() = runTest {
+        database.close(); context.deleteDatabase(databaseName)
+        val schema = gson.fromJson(java.io.File("schemas/co.edu.javeriana.disasterplatform.disaster_mobile_client.data.local.DisasterDatabase/1.json").readText(), com.google.gson.JsonObject::class.java)
+            .getAsJsonObject("database")
+        val entity = schema.getAsJsonArray("entities")[0].asJsonObject
+        val old = android.database.sqlite.SQLiteDatabase.openOrCreateDatabase(context.getDatabasePath(databaseName), null)
+        old.execSQL(entity.get("createSql").asString.replace("\${TABLE_NAME}", "disasters"))
+        for (index in entity.getAsJsonArray("indices")) old.execSQL(index.asJsonObject.get("createSql").asString.replace("\${TABLE_NAME}", "disasters"))
+        for (query in schema.getAsJsonArray("setupQueries")) old.execSQL(query.asString)
+        val statuses = listOf(SyncStatus.PENDING, SyncStatus.SYNCED, SyncStatus.ERROR, SyncStatus.CONFLICT)
+        statuses.forEachIndexed { index, status ->
+            old.execSQL("INSERT INTO disasters(clientRequestId,nombre,ubicacion,severidad,descripcion,latitud,longitud,radio,syncStatus,serverId,syncError) VALUES(?,?,?,?,?,?,?,?,?,?,?)",
+                arrayOf("legacy-$index", "Legado", "Bogotá", 4, "Conservar", 4.7, -74.0, if(index == 0) null else 1234.75,
+                    status, if(index == 1) 7 else null, if(index > 1) "Conservar error" else null))
+        }
+        old.version = 1; old.close(); database = openDatabase()
+        val rows = dao.observeAll().first()
+        assertEquals(4, rows.size)
+        for ((index, status) in statuses.withIndex()) {
+            val row = checkNotNull(dao.findByRequestId("legacy-$index"))
+            assertEquals(status, row.syncStatus)
+            assertNull(row.creationPayload); assertNull(row.version); assertNull(row.disasterTypeId); assertNull(row.registeredAt)
+            assertEquals(if(index == 0) null else 1234.75, row.radio)
+            assertEquals(if(index == 1) 7 else null, row.serverId)
+        }
     }
 
 }

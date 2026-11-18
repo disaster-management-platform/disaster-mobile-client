@@ -10,4 +10,7 @@ data class DisasterReportDto(
     @SerializedName("latitud") val latitud: Double,
     @SerializedName("longitud") val longitud: Double,
     @SerializedName("radio") val radio: Double? = null,
+    @SerializedName("disasterTypeId") val disasterTypeId: Int? = null,
+    @SerializedName("startedAt") val startedAt: String? = null,
+    @SerializedName("attentionLevel") val attentionLevel: Int? = null,
 )

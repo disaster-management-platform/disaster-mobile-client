@@ -6,6 +6,8 @@ import co.edu.javeriana.disasterplatform.disaster_mobile_client.data.local.Disas
 import co.edu.javeriana.disasterplatform.disaster_mobile_client.data.local.SyncStatus
 import co.edu.javeriana.disasterplatform.disaster_mobile_client.data.remote.DisasterApi
 import com.google.gson.JsonParseException
+import co.edu.javeriana.disasterplatform.disaster_mobile_client.data.validated
+import co.edu.javeriana.disasterplatform.disaster_mobile_client.data.normalizedUtc
 import java.io.IOException
 import javax.inject.Inject
 import retrofit2.HttpException
@@ -27,18 +29,14 @@ class DisasterSynchronizer @Inject constructor(
                     val saved = response.body()
                     if (response.code() !in listOf(200, 201) || saved == null)
                         throw IOException("El servidor no confirmó el desastre.")
-                    if (saved.id <= 0 || saved.nombre.isNullOrBlank() || saved.ubicacion.isNullOrBlank()
-                        || saved.descripcion.isNullOrBlank() || saved.severidad !in 1..5
-                        || !saved.latitud.isFinite() || saved.latitud !in -90.0..90.0
-                        || !saved.longitud.isFinite() || saved.longitud !in -180.0..180.0
-                        || (saved.radio != null && (!saved.radio.isFinite() || saved.radio <= 0 || saved.radio > 1_000_000)))
-                        throw IOException("El servidor devolvió una confirmación incompleta o inválida.")
-                    if (!saved.confirms(report)) {
+                    val valid = try { saved.validated() }
+                    catch (_: IllegalArgumentException) { throw IOException("Confirmación incompleta o inválida.") }
+                    if (!valid.confirms(report)) {
                         dao.markError(disaster.clientRequestId, SyncStatus.CONFLICT,
                             "El servidor confirmó un contenido diferente. Se conserva el reporte para revisión.")
                         continue
                     }
-                    dao.markSynced(disaster.clientRequestId, saved.id)
+                    dao.markSynced(disaster.clientRequestId, valid.id, valid)
                 } catch (error: HttpException) {
                     val code = error.code()
                     if (code == 408 || code == 429 || code >= 500) return false
@@ -64,5 +62,6 @@ class DisasterSynchronizer @Inject constructor(
         id > 0 && nombre == report.nombre && ubicacion == report.ubicacion &&
             severidad == report.severidad && descripcion == report.descripcion &&
             latitud == report.latitud && longitud == report.longitud &&
-            radio == report.radio
+            radio == report.radio && disasterTypeId == report.disasterTypeId && attentionLevel == report.attentionLevel &&
+            normalizedUtc(startedAt) == normalizedUtc(report.startedAt)
 }

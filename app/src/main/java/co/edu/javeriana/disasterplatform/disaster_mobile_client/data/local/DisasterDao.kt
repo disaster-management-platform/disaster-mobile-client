@@ -1,5 +1,6 @@
 package co.edu.javeriana.disasterplatform.disaster_mobile_client.data.local
 
+import com.google.gson.Gson
 import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.Query
@@ -31,14 +32,20 @@ abstract class DisasterDao {
     @Query("DELETE FROM disasters WHERE serverId = :serverId AND clientRequestId != :requestId AND syncStatus = 'SYNCED'")
     protected abstract suspend fun removeCachedDuplicate(serverId: Int, requestId: String)
 
-    @Query("UPDATE disasters SET syncStatus = 'SYNCED', serverId = :serverId, syncError = NULL WHERE clientRequestId = :requestId AND syncStatus = 'PENDING'")
-    protected abstract suspend fun confirm(requestId: String, serverId: Int)
-
     @Transaction
-    open suspend fun markSynced(requestId: String, serverId: Int) {
-        // Un GET puede haber descargado la fila mientras terminaba el POST.
+    open suspend fun markSynced(requestId: String, serverId: Int, confirmation: DisasterInfoDto? = null) {
+        val pending = findByRequestId(requestId) ?: return
+        if (pending.syncStatus != SyncStatus.PENDING) return
+        val cached = findByServerId(serverId)
+        if (cached != null && cached.clientRequestId != requestId && cached.syncStatus != SyncStatus.SYNCED) {
+            markError(requestId, SyncStatus.CONFLICT, "La identidad remota pertenece a otro registro local que requiere revisión.")
+            return
+        }
+        val receipt = confirmation?.toEntity(requestId) ?: pending.copy(serverId = serverId, syncStatus = SyncStatus.SYNCED)
+        val latest = if (cached != null && (cached.version ?: 0) >= (receipt.version ?: 0)) cached else receipt
         removeCachedDuplicate(serverId, requestId)
-        confirm(requestId, serverId)
+        upsert(latest.copy(clientRequestId = requestId, syncStatus = SyncStatus.SYNCED, syncError = null,
+            serverId = serverId, creationPayload = pending.creationPayload ?: Gson().toJson(pending.toReport())))
     }
 
     @Query("UPDATE disasters SET syncStatus = :status, syncError = :message WHERE clientRequestId = :requestId AND syncStatus = 'PENDING'")
@@ -48,7 +55,20 @@ abstract class DisasterDao {
     open suspend fun cacheRemote(disasters: List<DisasterInfoDto>) {
         for (disaster in disasters) {
             val existing = findByServerId(disaster.id)
-            upsert(disaster.toEntity(existing?.clientRequestId ?: "server:${disaster.id}"))
+            if (existing != null && existing.syncStatus != SyncStatus.SYNCED) continue
+            if (existing?.version != null && (disaster.version ?: 0) <= existing.version) continue
+            upsert(disaster.toEntity(existing?.clientRequestId ?: "server:${disaster.id}")
+                .copy(creationPayload = existing?.creationPayload))
         }
     }
+
+    @Query("SELECT * FROM disaster_types ORDER BY id")
+    abstract fun observeTypes(): Flow<List<DisasterTypeEntity>>
+
+    @Query("SELECT * FROM disaster_types WHERE id = :id")
+    abstract suspend fun findType(id: Int): DisasterTypeEntity?
+
+    @Upsert
+    abstract suspend fun cacheTypes(types: List<DisasterTypeEntity>)
+
 }

@@ -43,6 +43,8 @@ El formulario valida los campos y el repositorio genera un UUID. Guarda el repor
 
 Después se programa `SyncDisastersWorker` con WorkManager y una restricción de conectividad. El worker lee los pendientes y envía cada uno a `POST /api/desastres`, usando su `clientRequestId` en la cabecera `Idempotency-Key`. Esa clave se crea una sola vez y se conserva durante todos los reintentos, incluso después de cerrar la app.
 
+El formulario permite seleccionar un tipo previamente descargado, una fecha de inicio UTC y una clasificación de atención independiente de la severidad. El catálogo público se guarda en Room y puede consultarse sin conectividad; si todavía no se descargó, se conserva el registro sin tipo y se muestra que está pendiente. Los tipos desactivados mantienen sus referencias históricas.
+
 Radio es opcional: vacío significa desconocido (`null`), sin valores predeterminados. Si se proporciona, debe ser finito, mayor que cero y máximo 1.000.000 metros. El valor se conserva en Room y en cada reintento; el mapa solo dibuja un círculo cuando se conoce.
 
 Los registros históricos conservan su UUID, Radio y estado. No existe información para saber si un pendiente con Radio null fue enviado anteriormente como 500. Se reintenta con el contenido local y la misma clave: si el servidor ya aceptó otro contenido, el 409 queda visible como conflicto para revisión, sin sustituir el Radio ni crear otra operación. Una confirmación con Radio diferente también queda en conflicto.
@@ -60,7 +62,9 @@ Si se pierde una respuesta, el reporte sigue pendiente. El próximo intento llev
 
 Los problemas de red, `408`, `429` y errores `5xx` conservan el pendiente y se reintentan con espera exponencial, comenzando en 30 segundos. Los demás errores HTTP quedan visibles en la lista; un `400` o `409` no se reintenta sin parar ni genera otra clave automáticamente. Esta versión no incluye una pantalla para corregir esos reportes.
 
-La lista y los marcadores leen siempre de Room. Al actualizar se descargan los reportes del servidor y se incorporan a la base local sin borrar los pendientes. Si no hay conexión, puedes seguir consultando lo que ya estaba guardado.
+Room versión 2 utiliza una migración incremental desde la versión 1: conserva UUID, identificadores remotos, Radio, estados y pendientes, sin inventar atributos históricos. Cada nueva creación guarda su cuerpo original para los reintentos. Un recibo POST histórico no reemplaza una versión más reciente obtenida mediante GET. Las descargas se validan completas antes de almacenarse; las respuestas inválidas conservan los datos locales.
+
+La lista, el catálogo y los marcadores leen siempre de Room mediante Flow, StateFlow y collectAsStateWithLifecycle. Al actualizar se descargan los reportes del servidor y se incorporan a la base local sin borrar los pendientes. Si no hay conexión, puedes seguir consultando lo que ya estaba guardado.
 
 La sincronización usa una cadena de trabajo única llamada `sync-disasters`, con `APPEND_OR_REPLACE`: si guardas mientras hay un envío activo, se agrega otro recorrido al terminar. Así el reporte nuevo no se pierde por haber usado `KEEP` justo cuando finalizaba el trabajo anterior. Al iniciar la app también se programa un recorrido para recuperar pendientes que pudieran quedar entre el guardado y la programación.
 

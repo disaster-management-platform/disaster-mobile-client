@@ -14,6 +14,7 @@ import co.edu.javeriana.disasterplatform.disaster_mobile_client.di.NetworkModule
 import co.edu.javeriana.disasterplatform.disaster_mobile_client.ui.viewmodels.FormViewModel
 import java.util.UUID
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.flow.first
 import org.junit.Assert.*
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -41,14 +42,16 @@ class OfflineGatewayInstrumentedTest {
                 Thread.sleep(200)
             }
         }
-        val database = Room.databaseBuilder(context, DisasterDatabase::class.java, "disasters.db").build()
+        val database = Room.databaseBuilder(context, DisasterDatabase::class.java, "disasters.db").addMigrations(DisasterDatabase.MIGRATION_1_2).build()
         try {
             val dao = database.disasterDao()
             if (stage != "recover") {
+                val repository = DisasterRepository(api, dao, DisasterSyncScheduler(context))
+                repository.refreshTypes()
+                val typeId = dao.observeTypes().first().first { it.isActive }.id
                 network(false)
                 await("El emulador no perdió la conectividad") { connectivity.activeNetwork == null }
                 val operation = UUID.randomUUID().toString()
-                val repository = DisasterRepository(api, dao, DisasterSyncScheduler(context))
                 val viewModel = FormViewModel(repository)
                 instrumentation.runOnMainSync {
                     viewModel.onNombreChanged("Offline $operation")
@@ -57,6 +60,9 @@ class OfflineGatewayInstrumentedTest {
                     viewModel.onLatitudChanged("4.711")
                     viewModel.onLongitudChanged("-74.0721")
                     viewModel.onRadioChanged("1234.75")
+                    viewModel.onTypeChanged(typeId)
+                    viewModel.onStartedAtChanged("2026-11-17T12:00:00Z")
+                    viewModel.onAttentionChanged(4)
                     viewModel.submitForm()
                 }
                 await("El formulario no guardó el reporte") {
@@ -78,6 +84,9 @@ class OfflineGatewayInstrumentedTest {
             val before = ids.map { checkNotNull(dao.findByRequestId(it)) }
             assertEquals(1234.75, before[0].radio)
             assertNull(before[1].radio)
+            assertEquals(4, before[0].attentionLevel)
+            assertEquals("2026-11-17T12:00:00Z", before[0].startedAt)
+            assertNotNull(before[0].disasterTypeId)
             assertTrue(before.all { it.syncStatus == SyncStatus.PENDING })
             network(true)
             await("WorkManager no sincronizó los pendientes") {

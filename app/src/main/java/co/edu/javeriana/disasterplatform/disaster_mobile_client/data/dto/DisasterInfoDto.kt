@@ -19,4 +19,11 @@ data class DisasterInfoDto(
     val longitud: Double = Double.NaN,
     @SerializedName("radio")
     val radio: Double? = null,
+    @SerializedName("disasterTypeId") val disasterTypeId: Int? = null,
+    @SerializedName("startedAt") val startedAt: String? = null,
+    @SerializedName("registeredAt") val registeredAt: String? = null,
+    @SerializedName("updatedAt") val updatedAt: String? = null,
+    @SerializedName("attentionLevel") val attentionLevel: Int? = null,
+    @SerializedName("phase") val phase: String? = null,
+    @SerializedName("version") val version: Long? = null,
 )

@@ -160,6 +160,12 @@ fun DisasterItemCard(disaster: DisasterEntity) {
                 style = MaterialTheme.typography.labelMedium,
             )
             disaster.syncError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+            disaster.disasterTypeId?.let { Text("Tipo: $it") }
+            disaster.attentionLevel?.let { Text("Atención requerida: nivel $it") }
+            disaster.startedAt?.let { Text("Inicio UTC: $it") }
+            disaster.registeredAt?.let { Text("Registro UTC: $it") }
+            disaster.updatedAt?.let { Text("Actualización UTC: $it") }
+            disaster.phase?.let { Text("Fase: $it · Versión: ${disaster.version}") }
 
             Text(
                 text = "Ubicación: ${disaster.ubicacion}",

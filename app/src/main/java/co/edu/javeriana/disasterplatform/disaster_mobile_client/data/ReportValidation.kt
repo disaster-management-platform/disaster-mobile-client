@@ -1,6 +1,11 @@
 package co.edu.javeriana.disasterplatform.disaster_mobile_client.data
 
 import co.edu.javeriana.disasterplatform.disaster_mobile_client.data.dto.DisasterReportDto
+import co.edu.javeriana.disasterplatform.disaster_mobile_client.data.dto.DisasterInfoDto
+import java.text.ParsePosition
+import java.text.SimpleDateFormat
+import java.util.Locale
+import java.util.TimeZone
 
 fun DisasterReportDto.validated(): DisasterReportDto {
     val normalized = copy(nombre = nombre.trim(), ubicacion = ubicacion.trim(), descripcion = descripcion.trim())
@@ -13,5 +18,30 @@ fun DisasterReportDto.validated(): DisasterReportDto {
     require(radio == null || (radio.isFinite() && radio > 0.0 && radio <= 1_000_000.0)) {
         "El radio debe ser mayor que 0 y máximo 1.000.000 metros."
     }
-    return normalized
+    require(disasterTypeId == null || disasterTypeId > 0) { "Seleccione un tipo válido." }
+    require(attentionLevel == null || attentionLevel in 1..4) { "La atención requerida debe estar entre 1 y 4." }
+    return normalized.copy(startedAt = normalizedUtc(startedAt))
+}
+
+fun normalizedUtc(value: String?): String? {
+    if (value == null) return null
+    val parts = Regex("^(\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2})(?:\\.(\\d{1,6}))?(?:Z|\\+00:00)$").matchEntire(value)
+    require(parts != null) { "La fecha debe ser UTC, con formato 2026-11-17T12:00:00Z." }
+    val format = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.ROOT).apply {
+        isLenient = false
+        timeZone = TimeZone.getTimeZone("UTC")
+    }
+    val position = ParsePosition(0)
+    require(format.parse(parts.groupValues[1], position) != null && position.index == parts.groupValues[1].length) { "Fecha inválida." }
+    val fraction = parts.groupValues[2].trimEnd('0')
+    return parts.groupValues[1] + (if (fraction.isEmpty()) "" else ".$fraction") + "Z"
+}
+
+fun DisasterInfoDto.validated(requireVersion: Boolean = false): DisasterInfoDto {
+    require(id > 0 && !nombre.isNullOrBlank() && !ubicacion.isNullOrBlank() && !descripcion.isNullOrBlank()) { "Respuesta incompleta." }
+    val normalized = DisasterReportDto(nombre, ubicacion, severidad, descripcion, latitud, longitud, radio,
+        disasterTypeId, startedAt, attentionLevel).validated()
+    require(version == null && !requireVersion || version != null && version > 0) { "Versión inválida o ausente." }
+    require(phase == null && !requireVersion || phase in setOf("Detected", "Registered", "Assessment", "Response", "Recovery", "Reconstruction", "Closed")) { "Fase inválida o ausente." }
+    return copy(startedAt = normalized.startedAt, registeredAt = normalizedUtc(registeredAt), updatedAt = normalizedUtc(updatedAt))
 }

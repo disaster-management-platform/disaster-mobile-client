@@ -7,6 +7,8 @@ import co.edu.javeriana.disasterplatform.disaster_mobile_client.data.repository.
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -25,13 +27,21 @@ data class FormState(
     val descripcion: String = "",
     val latitud: String = "",
     val longitud: String = "",
-    val radio: String = ""
+    val radio: String = "",
+    val disasterTypeId: Int? = null,
+    val startedAt: String = "",
+    val attentionLevel: Int? = null
 )
 
 @HiltViewModel
 class FormViewModel @Inject constructor(
     private val repository: DisasterRepository
 ) : ViewModel() {
+
+    val types = repository.observeTypes().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    fun onTypeChanged(value: Int?) { _formState.value = _formState.value.copy(disasterTypeId = value) }
+    fun onStartedAtChanged(value: String) { _formState.value = _formState.value.copy(startedAt = value) }
+    fun onAttentionChanged(value: Int?) { _formState.value = _formState.value.copy(attentionLevel = value) }
 
     private val _formState = MutableStateFlow(FormState())
     val formState: StateFlow<FormState> = _formState.asStateFlow()
@@ -99,7 +109,10 @@ class FormViewModel @Inject constructor(
             descripcion = current.descripcion,
             latitud = lat,
             longitud = lng,
-            radio = rad
+            radio = rad,
+            disasterTypeId = current.disasterTypeId,
+            startedAt = current.startedAt.takeIf { it.isNotBlank() },
+            attentionLevel = current.attentionLevel
         )
 
         _uiState.value = FormUiState.Loading

@@ -30,6 +30,11 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -52,6 +57,9 @@ fun FormScreen(
 ) {
     val formState by viewModel.formState.collectAsStateWithLifecycle()
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val types by viewModel.types.collectAsStateWithLifecycle()
+    var typesExpanded by remember { mutableStateOf(false) }
+    var attentionExpanded by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
@@ -86,6 +94,36 @@ fun FormScreen(
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold
                 )
+
+                Box {
+                    OutlinedButton(onClick = { typesExpanded = true }) {
+                        Text(types.find { it.id == formState.disasterTypeId }?.let { it.name + if (it.isActive) "" else " (inactivo)" }
+                            ?: "Tipo de desastre (opcional)")
+                    }
+                    DropdownMenu(expanded = typesExpanded, onDismissRequest = { typesExpanded = false }) {
+                        DropdownMenuItem(text = { Text("Sin tipo") }, onClick = { viewModel.onTypeChanged(null); typesExpanded = false })
+                        types.filter { it.isActive }.forEach { type ->
+                            DropdownMenuItem(text = { Text(type.name) }, onClick = { viewModel.onTypeChanged(type.id); typesExpanded = false })
+                        }
+                    }
+                }
+                if (types.isEmpty()) Text("Catálogo pendiente de obtener. Puede registrar sin tipo y conservar el reporte offline.")
+                OutlinedTextField(value = formState.startedAt, onValueChange = viewModel::onStartedAtChanged,
+                    label = { Text("Inicio UTC (opcional)") }, placeholder = { Text("2026-11-17T12:00:00Z") },
+                    modifier = Modifier.fillMaxWidth(), singleLine = true)
+                Box {
+                    val labels = listOf("Bajo", "Medio", "Alto", "Crítico")
+                    OutlinedButton(onClick = { attentionExpanded = true }) {
+                        Text(formState.attentionLevel?.let { "Atención $it: ${labels[it - 1]}" } ?: "Atención requerida (opcional)")
+                    }
+                    DropdownMenu(expanded = attentionExpanded, onDismissRequest = { attentionExpanded = false }) {
+                        DropdownMenuItem(text = { Text("Sin clasificar") }, onClick = { viewModel.onAttentionChanged(null); attentionExpanded = false })
+                        labels.forEachIndexed { index, label ->
+                            DropdownMenuItem(text = { Text("Nivel ${index + 1}: $label") },
+                                onClick = { viewModel.onAttentionChanged(index + 1); attentionExpanded = false })
+                        }
+                    }
+                }
 
                 // Nombre
                 OutlinedTextField(
