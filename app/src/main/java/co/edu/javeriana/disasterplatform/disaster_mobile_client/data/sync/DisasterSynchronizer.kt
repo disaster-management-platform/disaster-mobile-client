@@ -80,6 +80,12 @@ class DisasterSynchronizer @Inject constructor(
                         dao.markError(disaster.clientRequestId, SyncStatus.ERROR,
                             "El servidor rechazó los datos del reporte: " + messages.filterNotNull().flatten().joinToString(" "))
                     }
+                    "RetryableFailure" -> {
+                        if (result.errors?.containsKey("recoveryExhausted") == true)
+                            dao.markError(disaster.clientRequestId, SyncStatus.ERROR,
+                                "Recuperación automática agotada; requiere intervención administrativa. Se conservan identidad y contenido.")
+                        else retry = true
+                    }
                     "Conflict" -> dao.markError(disaster.clientRequestId, SyncStatus.CONFLICT,
                         if (disaster.radio == null) "La clave ya está registrada con otros datos. El radio histórico es desconocido; requiere revisión."
                         else "La clave ya está registrada con otros datos; requiere revisión.")

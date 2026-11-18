@@ -718,4 +718,15 @@ class OfflineDisastersTest {
         assertEquals(original, retried)
     }
 
+    @Test
+    fun exhaustedRecoveryIsVisibleAndPreservesAcceptedCommand() = runTest {
+        val saved = pending().copy(syncStatus = SyncStatus.ACCEPTED); dao.insert(saved)
+        respond(200, DisasterBatchResponse(listOf(DisasterBatchResult(saved.clientRequestId, "RetryableFailure",
+            errors = mapOf("recoveryExhausted" to listOf("Administrative review required"))))))
+        assertTrue(DisasterSynchronizer(dao, api).syncPending())
+        val row = checkNotNull(dao.findByRequestId(saved.clientRequestId))
+        assertEquals(SyncStatus.ERROR, row.syncStatus); assertEquals(saved.toReport(), row.toReport())
+        assertEquals(saved.clientRequestId, row.clientRequestId)
+    }
+
 }
