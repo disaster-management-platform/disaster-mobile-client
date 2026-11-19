@@ -36,6 +36,7 @@ class DisasterSynchronizer @Inject constructor(
                     pending.map { DisasterOperation(it.clientRequestId, it.toReport()) }))
             } catch (_: IOException) { return false }
             catch (_: JsonParseException) { return false }
+            if (response.code() == 401) return false
             if (response.code() == 413 && pending.size > 1) {
                 val half = pending.size / 2
                 batches.addFirst(pending.drop(half))
@@ -44,7 +45,7 @@ class DisasterSynchronizer @Inject constructor(
             }
             if (response.code() in 400..499 && response.code() !in listOf(408, 425, 429)) {
                 val message = when (response.code()) {
-                    401, 403 -> "Autorización rechazada; revise el acceso antes de reintentar."
+                    403 -> "Autorización rechazada; revise el acceso antes de reintentar."
                     413 -> "El reporte supera el tamaño admitido; requiere revisión."
                     400, 422 -> "El servidor rechazó el lote; revise los datos y la configuración."
                     else -> "Configuración o contrato Batch rechazado (HTTP ${response.code()}); requiere revisión."

@@ -622,8 +622,19 @@ class OfflineDisastersTest {
     }
 
     @Test
+    fun expiredAuthenticationPreservesPendingAndAcceptedOperations() = runTest {
+        val pending = pending()
+        val accepted = pending().copy(syncStatus = SyncStatus.ACCEPTED)
+        dao.insert(pending); dao.insert(accepted)
+        respond(401)
+        assertFalse(DisasterSynchronizer(dao, api).syncPending())
+        assertEquals(pending, dao.findByRequestId(pending.clientRequestId))
+        assertEquals(accepted, dao.findByRequestId(accepted.clientRequestId))
+    }
+
+    @Test
     fun permanentBatchRejectionsPreserveIdentityWithoutEndlessRetries() = runTest {
-        for (code in listOf(400, 401, 403, 404, 413, 422)) {
+        for (code in listOf(400, 403, 404, 413, 422)) {
             val saved = pending(); dao.insert(saved); respond(code)
             assertTrue(DisasterSynchronizer(dao, api).syncPending())
             val rejected = checkNotNull(dao.findByRequestId(saved.clientRequestId))
