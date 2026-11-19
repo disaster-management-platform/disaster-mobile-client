@@ -68,7 +68,7 @@ class AssessmentRepository @Inject constructor(
         scheduler.enqueue(); id
     }
     suspend fun addFile(id: String, uri: Uri) = withContext(Dispatchers.IO) {
-        val s=session();val row=checkNotNull(dao.get(s.owner,id));require(s.canWrite&&s.allows(row.disasterId))
+        val s=session();val row=checkNotNull(dao.get(s.owner,id));require(s.canWrite&&s.allows(row.disasterId)&&row.state!="SCOPE_REMOVED")
         if(row.remoteJson!=null)require(AssessmentWire.text(AssessmentWire.json(row.remoteJson),"status")=="Draft")
         val name=context.contentResolver.query(uri,arrayOf(OpenableColumns.DISPLAY_NAME),null,null,null)?.use { cursor -> if(cursor.moveToFirst())cursor.getString(0) else null } ?: uri.lastPathSegment?.substringAfterLast('/') ?: error("Nombre de archivo desconocido")
         require(name.length in 1..200 && name.none { it=='/'||it=='\\'||it.isISOControl() })
@@ -91,7 +91,7 @@ class AssessmentRepository @Inject constructor(
         return size to hash.digest().joinToString(""){"%02x".format(it)}
     }
     suspend fun prepareCapture(id:String):Pair<String,Uri> = withContext(Dispatchers.IO) {
-        val s=session();val row=checkNotNull(dao.get(s.owner,id));require(s.canWrite&&s.allows(row.disasterId))
+        val s=session();val row=checkNotNull(dao.get(s.owner,id));require(s.canWrite&&s.allows(row.disasterId)&&row.state!="SCOPE_REMOVED")
         val fileId=UUID.randomUUID().toString();val directory=File(context.filesDir,"assessment-evidence/${s.owner}").apply{mkdirs()};val file=File(directory,fileId)
         check(file.createNewFile())
         try{dao.attach(row,AssessmentFile(fileId,id,s.owner,file.path,"photo.jpg","image/jpeg",0,"",UUID.randomUUID().toString(),state="CAPTURING"))}catch(failure:Exception){file.delete();throw failure}
@@ -103,19 +103,17 @@ class AssessmentRepository @Inject constructor(
         val uri=androidx.core.content.FileProvider.getUriForFile(context,context.packageName+".assessment-files",source)
         context.revokeUriPermission(uri,android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION or android.content.Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
         val metadata=source.inputStream().use{content(it,row.contentType)}
-        dao.saveFile(row.copy(size=metadata.first,sha256=metadata.second,state="PENDING",error=null))
-        val parent=checkNotNull(dao.get(s.owner,row.assessmentId));dao.save(parent.copy(state=if(parent.remoteId==null)"PENDING" else "UPLOADING_EVIDENCE",error=null));scheduler.enqueue()
+        if(dao.completeCapture(s.owner,id,metadata.first,metadata.second))scheduler.enqueue()
     }
     suspend fun cancelCapture(id:String)=withContext(Dispatchers.IO) {
         val s=session();val row=checkNotNull(dao.allFiles(s.owner).firstOrNull{it.id==id});require(row.state=="CAPTURING")
         val source=localFile(row);val uri=androidx.core.content.FileProvider.getUriForFile(context,context.packageName+".assessment-files",source)
         context.revokeUriPermission(uri,android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION or android.content.Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
-        dao.saveFile(row.copy(state="ERROR",error="Captura cancelada; archivo conservado para revisión"))
-        val parent=checkNotNull(dao.get(s.owner,row.assessmentId));dao.save(parent.copy(state="ERROR",error="Captura cancelada"))
+        dao.completeCapture(s.owner,id,null,null)
     }
     suspend fun localFile(file: AssessmentFile): File = withContext(Dispatchers.IO) {
         val s=session();require(s.owner==file.owner)
-        val parent=checkNotNull(dao.get(s.owner,file.assessmentId));require(s.allows(parent.disasterId))
+        val parent=checkNotNull(dao.get(s.owner,file.assessmentId));require(s.allows(parent.disasterId)&&parent.state!="SCOPE_REMOVED")
         val root=File(context.filesDir,"assessment-evidence/${file.owner}").canonicalFile
         File(file.path).canonicalFile.also { require(it.parentFile==root) }
     }
@@ -312,8 +310,7 @@ class AssessmentRepository @Inject constructor(
             val result=AssessmentWire.snapshot(checkNotNull(update.body()));require(result["evidence"].asJsonArray.map{it.asString}.containsAll(references))
             row=row.copy(remoteJson=result.toString(),version=AssessmentWire.number(result,"version"))
         } else row=row.copy(remoteJson=current.toString(),version=AssessmentWire.number(current,"version"))
-        dao.complete(row,files)
-        return complete
+        return dao.complete(row)&&complete
     }
     private suspend fun delta(s: AssessmentSession,disaster: Int?): Boolean {
         val key=disaster?:0;var cursor=dao.cursor(s.owner,s.scope,key)
@@ -328,7 +325,9 @@ class AssessmentRepository @Inject constructor(
             require(values.distinctBy{AssessmentWire.text(it,"evaluationId")}.size==values.size)
             val next=AssessmentWire.uuid(AssessmentWire.text(page,"nextCursor"));require(next!=cursor)
             if(!active(s))return false
-            dao.page(s,key,values,next);cursor=next
+            val removed=page["removed"]?.let { items -> require(items.isJsonArray);items.asJsonArray.map { item -> item.asJsonObject.also { require(it.keySet()==setOf("evaluationId","version"));AssessmentWire.uuid(AssessmentWire.text(it,"evaluationId"));require(AssessmentWire.number(it,"version")>=0) } } } ?: emptyList()
+            require(removed.distinctBy{AssessmentWire.text(it,"evaluationId")}.size==removed.size)
+            dao.page(s,key,values,next,removed);cursor=next
             if(!page["hasMore"].asBoolean)return true
         }
         return false

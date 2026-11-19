@@ -30,6 +30,73 @@ class OfflineAssessmentsTest {
         addProperty("status","Draft");addProperty("damageLevel","Severe");addProperty("budget",12.34);addProperty("revision",1);addProperty("version",version)
         add("latitude",JsonNull.INSTANCE);add("longitude",JsonNull.INSTANCE);add("geometry",JsonNull.INSTANCE);add("evidence",JsonArray())
     }
+    @Test fun concurrentAttachmentKeepsParentSynchronizable()=runTest {
+        val db=Room.inMemoryDatabaseBuilder(context,DisasterDatabase::class.java).build()
+        try {
+            val dao=db.assessmentDao();val s=session();val value=snapshot();val id=value["evaluationId"].asString
+            dao.page(s,12,listOf(value),"before")
+            val stale=checkNotNull(dao.remote(s.owner,id)).copy(state="UPLOADING_EVIDENCE")
+            dao.save(stale)
+            val confirmed=value.deepCopy().apply { addProperty("version",1) }
+            val file=AssessmentFile(UUID.randomUUID().toString(),stale.localId,s.owner,"private-file","test.pdf","application/pdf",5,"sha",UUID.randomUUID().toString())
+            // HTTP finished with an earlier file list; a user attaches before the completion transaction.
+            dao.attach(stale,file)
+            assertFalse(dao.complete(stale.copy(remoteJson=confirmed.toString(),version=1)))
+            val pending=checkNotNull(dao.get(s.owner,stale.localId))
+            assertEquals("UPLOADING_EVIDENCE",pending.state);assertEquals(1L,pending.version)
+            assertEquals(file,dao.files(s.owner,stale.localId).single())
+            assertEquals(listOf(stale.localId),dao.pending(s.owner,s.disasters,null).map{it.localId})
+            val reference="attachment:"+UUID.randomUUID()
+            dao.saveFile(file.copy(reference=reference,state="VERIFIED"))
+            confirmed["evidence"].asJsonArray.add(reference)
+            assertTrue(dao.complete(pending.copy(remoteJson=confirmed.toString())))
+            assertEquals("SYNCED",dao.get(s.owner,stale.localId)?.state)
+            assertEquals("ASSOCIATED",dao.files(s.owner,stale.localId).single().state)
+        }finally{db.close()}
+    }
+    @Test fun removedPreliminaryScopeIsAtomicAndProtectsLocalFiles()=runTest {
+        val db=Room.inMemoryDatabaseBuilder(context,DisasterDatabase::class.java).build()
+        try {
+            val dao=db.assessmentDao();val s=session();val value=snapshot().apply{add("disasterId",JsonNull.INSTANCE)}
+            dao.page(s,0,listOf(value),"initial")
+            val row=checkNotNull(dao.remote(s.owner,value["evaluationId"].asString))
+            val file=AssessmentFile(UUID.randomUUID().toString(),row.localId,s.owner,"private","test.pdf","application/pdf",5,"sha",UUID.randomUUID().toString())
+            dao.attach(row,file)
+            val removed=JsonObject().apply {addProperty("evaluationId",row.remoteId);addProperty("version",1)}
+            try {dao.page(s,0,emptyList(),"invalid",listOf(removed,JsonObject()));fail("Partial invalidation committed")}catch(_:IllegalArgumentException){}
+            assertEquals("initial",dao.cursor(s.owner,s.scope,0));assertEquals("UPLOADING_EVIDENCE",dao.get(s.owner,row.localId)?.state)
+            val unauthorized=s.copy(disasters=emptyList())
+            dao.page(unauthorized,0,emptyList(),"removed",listOf(removed))
+            assertTrue(dao.observe(s.owner,emptyList()).first().isEmpty());assertTrue(dao.observeFiles(s.owner,emptyList()).first().isEmpty())
+            assertEquals(file,dao.files(s.owner,row.localId).single());assertEquals(row.creationPayload,dao.get(s.owner,row.localId)?.creationPayload)
+            assertEquals("removed",dao.cursor(s.owner,s.scope,0))
+            dao.resetCursor(s.owner,s.scope,0)
+            dao.page(unauthorized,0,emptyList(),"restarted",listOf(removed))
+            assertTrue(dao.observe(s.owner,emptyList()).first().isEmpty())
+            value.addProperty("disasterId",12);value.addProperty("version",1)
+            dao.page(s,12,listOf(value),"destination")
+            assertEquals("CONFLICT",dao.get(s.owner,row.localId)?.state)
+            assertEquals(12,dao.get(s.owner,row.localId)?.disasterId)
+            assertTrue(dao.observe(s.owner,emptyList()).first().isEmpty())
+            assertEquals(1,dao.observe(s.owner,listOf(12)).first().size)
+        }finally{db.close()}
+    }
+    @Test fun captureCompletionCannotRestoreRemovedScope()=runTest {
+        val db=Room.inMemoryDatabaseBuilder(context,DisasterDatabase::class.java).build()
+        try {
+            val dao=db.assessmentDao();val s=session();val value=snapshot().apply{add("disasterId",JsonNull.INSTANCE)}
+            dao.page(s,0,listOf(value),"initial")
+            val row=checkNotNull(dao.remote(s.owner,value["evaluationId"].asString))
+            val file=AssessmentFile(UUID.randomUUID().toString(),row.localId,s.owner,"private","photo.jpg","image/jpeg",0,"",UUID.randomUUID().toString(),state="CAPTURING")
+            dao.attach(row,file)
+            val removed=JsonObject().apply{addProperty("evaluationId",row.remoteId);addProperty("version",1)}
+            dao.page(s,0,emptyList(),"removed",listOf(removed))
+            assertFalse(dao.completeCapture(s.owner,file.id,10,"verified-hash"))
+            assertEquals("SCOPE_REMOVED",dao.get(s.owner,row.localId)?.state)
+            assertEquals("PENDING",dao.files(s.owner,row.localId).single().state)
+            assertTrue(dao.observe(s.owner,emptyList()).first().isEmpty())
+        }finally{db.close()}
+    }
     @Test fun pagesAreAtomicAndPreservePendingCommandsAndNewerVersions()=runTest {
         val db=Room.inMemoryDatabaseBuilder(context,DisasterDatabase::class.java).build()
         try {
