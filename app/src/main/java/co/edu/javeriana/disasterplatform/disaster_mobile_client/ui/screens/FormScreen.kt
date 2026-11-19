@@ -1,5 +1,10 @@
 package co.edu.javeriana.disasterplatform.disaster_mobile_client.ui.screens
 
+import android.Manifest
+import android.annotation.SuppressLint
+import android.content.pm.PackageManager
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -9,6 +14,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
@@ -40,11 +46,15 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.navigation.NavHostController
+import com.google.android.gms.location.LocationServices
+import com.google.android.gms.location.Priority
 import co.edu.javeriana.disasterplatform.disaster_mobile_client.ui.theme.CommandBlue
 import co.edu.javeriana.disasterplatform.disaster_mobile_client.ui.viewmodels.FormUiState
 import co.edu.javeriana.disasterplatform.disaster_mobile_client.ui.viewmodels.FormViewModel
@@ -60,6 +70,62 @@ fun FormScreen(
     val types by viewModel.types.collectAsStateWithLifecycle()
     var typesExpanded by remember { mutableStateOf(false) }
     var attentionExpanded by remember { mutableStateOf(false) }
+
+    val context = LocalContext.current
+    val fusedLocationClient = remember { LocationServices.getFusedLocationProviderClient(context) }
+    var isFetchingLocation by remember { mutableStateOf(false) }
+    var locationError by remember { mutableStateOf<String?>(null) }
+
+    fun checkLocationPermission(): Boolean {
+        return ContextCompat.checkSelfPermission(
+            context, Manifest.permission.ACCESS_FINE_LOCATION
+        ) == PackageManager.PERMISSION_GRANTED || ContextCompat.checkSelfPermission(
+            context, Manifest.permission.ACCESS_COARSE_LOCATION
+        ) == PackageManager.PERMISSION_GRANTED
+    }
+
+    @SuppressLint("MissingPermission")
+    fun fetchCurrentLocation() {
+        isFetchingLocation = true
+        locationError = null
+        fusedLocationClient.getCurrentLocation(Priority.PRIORITY_HIGH_ACCURACY, null)
+            .addOnSuccessListener { location ->
+                if (location != null) {
+                    viewModel.onLatitudChanged(location.latitude.toString())
+                    viewModel.onLongitudChanged(location.longitude.toString())
+                    isFetchingLocation = false
+                } else {
+                    fusedLocationClient.lastLocation.addOnSuccessListener { lastLoc ->
+                        if (lastLoc != null) {
+                            viewModel.onLatitudChanged(lastLoc.latitude.toString())
+                            viewModel.onLongitudChanged(lastLoc.longitude.toString())
+                        } else {
+                            locationError = "No se pudo obtener la ubicación GPS actual. Verifica que el GPS esté activado."
+                        }
+                        isFetchingLocation = false
+                    }.addOnFailureListener {
+                        locationError = "Error al obtener la ubicación GPS."
+                        isFetchingLocation = false
+                    }
+                }
+            }
+            .addOnFailureListener {
+                locationError = "Error al comunicarse con el servicio de ubicación."
+                isFetchingLocation = false
+            }
+    }
+
+    val permissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestMultiplePermissions()
+    ) { permissions ->
+        val isGranted = permissions[Manifest.permission.ACCESS_FINE_LOCATION] == true ||
+                permissions[Manifest.permission.ACCESS_COARSE_LOCATION] == true
+        if (isGranted) {
+            fetchCurrentLocation()
+        } else {
+            locationError = "Se requiere permiso de ubicación GPS para obtener las coordenadas."
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -189,30 +255,71 @@ fun FormScreen(
                     maxLines = 5
                 )
 
-                // Coordenadas: Latitud y Longitud
-                Row(
+                // Coordenadas GPS: Latitud y Longitud
+                Column(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    OutlinedTextField(
-                        value = formState.latitud,
-                        onValueChange = { viewModel.onLatitudChanged(it) },
-                        label = { Text("Latitud *") },
-                        placeholder = { Text("Ej. 4.6097") },
-                        modifier = Modifier.weight(1f),
-                        singleLine = true,
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
-                    )
+                    OutlinedButton(
+                        onClick = {
+                            if (checkLocationPermission()) {
+                                fetchCurrentLocation()
+                            } else {
+                                permissionLauncher.launch(
+                                    arrayOf(
+                                        Manifest.permission.ACCESS_FINE_LOCATION,
+                                        Manifest.permission.ACCESS_COARSE_LOCATION
+                                    )
+                                )
+                            }
+                        },
+                        enabled = !isFetchingLocation,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        if (isFetchingLocation) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(20.dp),
+                                strokeWidth = 2.dp
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Obteniendo ubicación GPS...")
+                        } else {
+                            Text("📍 Usar ubicación actual")
+                        }
+                    }
 
-                    OutlinedTextField(
-                        value = formState.longitud,
-                        onValueChange = { viewModel.onLongitudChanged(it) },
-                        label = { Text("Longitud *") },
-                        placeholder = { Text("Ej. -74.0817") },
-                        modifier = Modifier.weight(1f),
-                        singleLine = true,
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
-                    )
+                    if (locationError != null) {
+                        Text(
+                            text = locationError!!,
+                            color = MaterialTheme.colorScheme.error,
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        OutlinedTextField(
+                            value = formState.latitud,
+                            onValueChange = { viewModel.onLatitudChanged(it) },
+                            label = { Text("Latitud *") },
+                            placeholder = { Text("Ubicación GPS") },
+                            modifier = Modifier.weight(1f),
+                            singleLine = true,
+                            readOnly = true
+                        )
+
+                        OutlinedTextField(
+                            value = formState.longitud,
+                            onValueChange = { viewModel.onLongitudChanged(it) },
+                            label = { Text("Longitud *") },
+                            placeholder = { Text("Ubicación GPS") },
+                            modifier = Modifier.weight(1f),
+                            singleLine = true,
+                            readOnly = true
+                        )
+                    }
                 }
 
                 // Radio de la zona afectada (metros)

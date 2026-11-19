@@ -16,7 +16,10 @@ object DatabaseModule {
     @Provides
     @Singleton
     fun provideDatabase(@ApplicationContext context: Context): DisasterDatabase =
-        Room.databaseBuilder(context, DisasterDatabase::class.java, "disasters.db").addMigrations(DisasterDatabase.MIGRATION_1_2, DisasterDatabase.MIGRATION_2_3, DisasterDatabase.MIGRATION_3_4, DisasterDatabase.MIGRATION_4_5).build()
+        Room.databaseBuilder(context, DisasterDatabase::class.java, "disasters.db")
+            .addMigrations(DisasterDatabase.MIGRATION_1_2, DisasterDatabase.MIGRATION_2_3, DisasterDatabase.MIGRATION_3_4, DisasterDatabase.MIGRATION_4_5)
+            .fallbackToDestructiveMigration(dropAllTables = true)
+            .build()
 
     @Provides
     fun provideDisasterDao(database: DisasterDatabase) = database.disasterDao()
