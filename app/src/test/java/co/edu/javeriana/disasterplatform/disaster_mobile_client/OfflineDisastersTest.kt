@@ -62,11 +62,14 @@ class OfflineDisastersTest {
     private val gson = Gson()
     private val dao get() = database.disasterDao()
 
+    private lateinit var assessmentSession: co.edu.javeriana.disasterplatform.disaster_mobile_client.data.assessments.AssessmentSessionManager
+
     private fun assessmentRepository(): co.edu.javeriana.disasterplatform.disaster_mobile_client.data.assessments.AssessmentRepository {
         val service=Retrofit.Builder().baseUrl(server.url("/")).addConverterFactory(GsonConverterFactory.create()).build()
             .create(co.edu.javeriana.disasterplatform.disaster_mobile_client.data.assessments.AssessmentApi::class.java)
+        assessmentSession = co.edu.javeriana.disasterplatform.disaster_mobile_client.data.assessments.AssessmentSessionManager(context,service)
         return co.edu.javeriana.disasterplatform.disaster_mobile_client.data.assessments.AssessmentRepository(context,database.assessmentDao(),service,
-            co.edu.javeriana.disasterplatform.disaster_mobile_client.data.assessments.AssessmentSessionManager(context,service),DisasterSyncScheduler(context))
+            assessmentSession,DisasterSyncScheduler(context))
     }
 
     @Before
@@ -243,7 +246,7 @@ class OfflineDisastersTest {
         val sync = DisasterSynchronizer(dao, offlineApi)
         val factory = object : WorkerFactory() {
             override fun createWorker(appContext: Context, workerClassName: String, workerParameters: WorkerParameters) =
-                SyncDisastersWorker(appContext, workerParameters, sync, DisasterRepository(offlineApi, dao, DisasterSyncScheduler(context)), assessmentRepository())
+                SyncDisastersWorker(appContext, workerParameters, sync, DisasterRepository(offlineApi, dao, DisasterSyncScheduler(context)), assessmentRepository(), assessmentSession)
         }
         val worker = TestListenableWorkerBuilder<SyncDisastersWorker>(context).setWorkerFactory(factory).build()
         assertEquals(ListenableWorker.Result.retry(), worker.doWork())
@@ -338,7 +341,7 @@ class OfflineDisastersTest {
         assertTrue(dao.observeAll().first().isEmpty())
         assertEquals(1_000_000.0, repository.createDisaster(report.copy(radio = 1_000_000.0)).getOrThrow().radio)
         assertEquals(BuildConfig.API_BASE_URL,
-            NetworkModule.providesRetrofit().baseUrl().toString())
+            NetworkModule.providesRetrofit(dagger.Lazy { error("Session must remain lazy while building Retrofit") }).baseUrl().toString())
     }
 
 
@@ -655,7 +658,7 @@ class OfflineDisastersTest {
         val repository = DisasterRepository(api, dao, DisasterSyncScheduler(context))
         val factory = object : WorkerFactory() {
             override fun createWorker(appContext: Context, workerClassName: String, workerParameters: WorkerParameters) =
-                SyncDisastersWorker(appContext, workerParameters, DisasterSynchronizer(dao, api), repository, assessmentRepository())
+                SyncDisastersWorker(appContext, workerParameters, DisasterSynchronizer(dao, api), repository, assessmentRepository(), assessmentSession)
         }
         val worker = TestListenableWorkerBuilder<SyncDisastersWorker>(context).setWorkerFactory(factory).build()
         assertEquals(ListenableWorker.Result.retry(), worker.doWork())

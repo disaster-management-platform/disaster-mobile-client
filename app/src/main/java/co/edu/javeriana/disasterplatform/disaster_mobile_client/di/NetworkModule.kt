@@ -7,6 +7,7 @@ import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
+import okhttp3.HttpUrl.Companion.toHttpUrl
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import retrofit2.converter.scalars.ScalarsConverterFactory
@@ -18,8 +19,15 @@ object NetworkModule {
 
     @Singleton
     @Provides
-    fun providesRetrofit(): Retrofit {
+    fun providesRetrofit(session: dagger.Lazy<co.edu.javeriana.disasterplatform.disaster_mobile_client.data.assessments.AssessmentSessionManager>): Retrofit {
+        val gateway = BuildConfig.API_BASE_URL.toHttpUrl()
+        val client = okhttp3.OkHttpClient.Builder()
+            .followRedirects(false)
+            .addInterceptor(co.edu.javeriana.disasterplatform.disaster_mobile_client.data.remote.GatewayBearerInterceptor(gateway) {
+                session.get().session.value?.takeIf { it.isCurrent }?.authorization
+            }).build()
         return Retrofit.Builder()
+            .client(client)
             .baseUrl(BuildConfig.API_BASE_URL)
             .addConverterFactory(GsonConverterFactory.create())
             .addConverterFactory(ScalarsConverterFactory.create())

@@ -18,8 +18,10 @@ class SyncDisastersWorker @AssistedInject constructor(
     private val synchronizer: DisasterSynchronizer,
     private val repository: DisasterRepository,
     private val assessments: co.edu.javeriana.disasterplatform.disaster_mobile_client.data.assessments.AssessmentRepository,
+    private val session: co.edu.javeriana.disasterplatform.disaster_mobile_client.data.assessments.AssessmentSessionManager,
 ) : CoroutineWorker(context, parameters) {
     override suspend fun doWork(): Result {
+        session.restore()
         val uploaded = synchronizer.syncPending()
         val assessmentUploaded = try { assessments.synchronize() } catch (_: android.database.sqlite.SQLiteException) { false }
         return try {
