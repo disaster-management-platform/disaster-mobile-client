@@ -28,6 +28,7 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         // El plugin de secrets reemplaza este valor para la app; las pruebas no necesitan Maps.
         manifestPlaceholders["MAPS_API_KEY"] = ""
+        manifestPlaceholders["NETWORK_SECURITY_CONFIG"] = "@xml/network_security_config"
         buildConfigField("String", "API_BASE_URL", "\"${apiBaseUrl}\"")
     }
 
@@ -107,4 +108,31 @@ dependencies {
     implementation(libs.play.services.maps)
     implementation(libs.play.services.location)
     implementation(libs.android.maps.utils)
+}
+
+// Optional public CA for a private HTTPS demonstration deployment. Never a key or a token.
+val deploymentCa = providers.gradleProperty("DEPLOYMENT_CA_FILE")
+if (deploymentCa.isPresent) {
+    val generatedTrust = layout.buildDirectory.dir("generated/deploymentTrust").get().asFile
+    val publicCa = file(deploymentCa.get())
+    val generateDeploymentTrust by tasks.registering {
+        inputs.file(publicCa)
+        outputs.dir(generatedTrust)
+        doLast {
+            val directory = generatedTrust
+            directory.resolve("raw").mkdirs()
+            publicCa.copyTo(directory.resolve("raw/deployment_ca.crt"), overwrite = true)
+            directory.resolve("xml").mkdirs()
+            directory.resolve("xml/deployment_network_security_config.xml").writeText("""
+                <network-security-config>
+                  <base-config cleartextTrafficPermitted="false">
+                    <trust-anchors><certificates src="system"/><certificates src="@raw/deployment_ca"/></trust-anchors>
+                  </base-config>
+                </network-security-config>
+            """.trimIndent())
+        }
+    }
+    android.sourceSets.getByName("debug").res.srcDir(generatedTrust)
+    android.buildTypes.getByName("debug").manifestPlaceholders["NETWORK_SECURITY_CONFIG"] = "@xml/deployment_network_security_config"
+    tasks.named("preBuild").configure { dependsOn(generateDeploymentTrust) }
 }

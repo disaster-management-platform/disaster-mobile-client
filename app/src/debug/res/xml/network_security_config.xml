@@ -2,4 +2,10 @@
 <network-security-config>
     <!-- Desarrollo local: emulador o teléfono en la misma red del computador. -->
     <base-config cleartextTrafficPermitted="true" />
+    <!-- Private deployment CAs must be installed explicitly on the debug device. -->
+    <debug-overrides>
+        <trust-anchors>
+            <certificates src="user" />
+        </trust-anchors>
+    </debug-overrides>
 </network-security-config>

@@ -71,7 +71,7 @@ class OfflineAssessmentInstrumentedTest {
             val synced=checkNotNull(database.assessmentDao().get(owner,id));val file=database.assessmentDao().files(owner,id).single{it.id==fileId}
             assertEquals("ASSOCIATED",file.state);assertNotNull(file.evidenceId);assertEquals("attachment:${file.evidenceId}",file.reference);assertTrue(File(file.path).exists());assertEquals(original,synced.creationPayload)
             await("Room changes did not reach reactive UI state"){model.assessments.value.any{it.localId==id&&it.state=="SYNCED"}}
-            val service=NetworkModule.providesAssessmentService(NetworkModule.providesRetrofit());val session=checkNotNull(model.session.value)
+            val service=NetworkModule.providesAssessmentService(dagger.hilt.android.EntryPointAccessors.fromApplication(context, DeploymentNetworkEntryPoint::class.java).retrofit());val session=checkNotNull(model.session.value)
             val remote=checkNotNull(service.get(session.authorization,synced.remoteId!!).body());assertTrue(remote["evidence"].asJsonArray.any{it.asString==file.reference})
             val replay=service.batch(session.authorization,JsonObject().apply{add("operations",JsonArray().apply{add(JsonObject().apply{addProperty("clientRequestId",id);add("evaluation",AssessmentWire.json(original))})})})
             assertEquals("AlreadyProcessed",replay.body()!!["results"].asJsonArray[0].asJsonObject["status"].asString)

@@ -27,7 +27,11 @@ class OfflineGatewayInstrumentedTest {
         val context = instrumentation.targetContext
         val stage = InstrumentationRegistry.getArguments().getString("offline-stage", "complete")
         val preferences = context.getSharedPreferences("offline-gateway-test", Context.MODE_PRIVATE)
-        val api = NetworkModule.providesDisasterRetrofitService(NetworkModule.providesRetrofit())
+        val identity = dagger.hilt.android.EntryPointAccessors.fromApplication(context, DeploymentNetworkEntryPoint::class.java).session()
+        identity.restore()
+        InstrumentationRegistry.getArguments().getString("assessment-token")?.let { identity.accept(it) }
+        check(identity.session.value?.isCurrent == true) { "Supply a current authorized identity" }
+        val api = NetworkModule.providesDisasterRetrofitService(dagger.hilt.android.EntryPointAccessors.fromApplication(context, DeploymentNetworkEntryPoint::class.java).retrofit())
         val connectivity = context.getSystemService(ConnectivityManager::class.java)
         fun network(enabled: Boolean) {
             for (service in listOf("wifi", "data")) {
